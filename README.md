@@ -1,11 +1,46 @@
-# DeepSeek Harness 首步约束实验
+# dsh-HoldThatBigBlueFatFish
 
-`#dsh-plugin` · Community preset · MIT
+> 让 DeepSeek Harness 的蓝色大肥鱼先拿一条证据，再动整片池塘。
+
+`#dsh-plugin` · DeepSeek Harness community preset · MIT
 
 本工作区汇总了 `deepseek-official/deepseek-v4-pro`、`reasoningEffort: max` 的 Git-style Anchored Standard、Project2 长测和 V2–V6 省 Token 消融，并提供已安装到当前 DeepSeek Harness 的生产预设：
 
 ```text
 dsv4-progressive-guarded
+```
+
+这是社区实验，不是 DeepSeek 官方 preset，也不代表 DeepSeek 的认可或背书。当前 composition 基于 DeepSeek Harness `47f943859bef60e4160492346772ded9b24f765a` 的 Standard preset 生成；Harness 升级后应重新运行验证。
+
+## 快速安装
+
+克隆仓库后，将生产 preset 目录完整复制到你的 DSH 用户 preset 根目录。PowerShell：
+
+```powershell
+if (-not $env:DSH_HOME) { throw '请先设置 DSH_HOME' }
+$source = '.\.dsh-data\.agent-presets\dsv4-progressive-guarded'
+$target = Join-Path $env:DSH_HOME '.agent-presets\dsv4-progressive-guarded'
+if (Test-Path -LiteralPath $target) { throw "目标已存在：$target" }
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+Copy-Item -Recurse -LiteralPath $source -Destination $target
+```
+
+Linux/macOS：
+
+```bash
+test -n "$DSH_HOME"
+test ! -e "$DSH_HOME/.agent-presets/dsv4-progressive-guarded"
+mkdir -p "$DSH_HOME/.agent-presets"
+cp -R .dsh-data/.agent-presets/dsv4-progressive-guarded \
+  "$DSH_HOME/.agent-presets/dsv4-progressive-guarded"
+```
+
+完整重启 DeepSeek Harness，新建空白 session，选择 `DSV4 Progressive Guarded`。不要在已有轨迹的会话中途切换 preset。
+
+验证发布包：
+
+```powershell
+npm.cmd test
 ```
 
 ## 总结
