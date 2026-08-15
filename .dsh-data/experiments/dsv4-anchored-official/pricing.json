@@ -1,0 +1,10 @@
+{
+  "model": "deepseek-v4-pro",
+  "currency": "USD",
+  "unitTokens": 1000000,
+  "cacheHitInput": 0.003625,
+  "cacheMissInput": 0.435,
+  "output": 0.87,
+  "capturedOn": "2026-08-15",
+  "source": "https://api-docs.deepseek.com/quick_start/pricing"
+}

@@ -1,0 +1,37 @@
+{
+  "standardPath": "<DSH_SOURCE_ROOT>/apps/cli/config/agent-presets/standard/agent.cordis.yml",
+  "standardSha256": "cb98756a9ed76ca351a45a0ba138a97bf0ab7eead4fe2f1e9d1c9f9ec97937f0",
+  "compactContractSha256": "bb3310afc30f1661904b5fd40c360da7391f6071034a7411cc0338b468a64030",
+  "presets": [
+    {
+      "condition": "v2-minimal-core",
+      "presetId": "dsv4-official-v2-minimal-core",
+      "compositionSha256": "faed684f6fc45d8e8f8c024ba44f9519edc75e6671f10906d1701516aac5d17f"
+    },
+    {
+      "condition": "v2-compact-core",
+      "presetId": "dsv4-official-v2-compact-core",
+      "compositionSha256": "2759acc550b009109814a2f2dab54b3807e290570e8569e8c69f4d70c81b9e5f"
+    },
+    {
+      "condition": "v3-single-core",
+      "presetId": "dsv4-official-v3-single-core",
+      "compositionSha256": "d9e24b9ecb10139fff2df0b445fdb718c82086b5de896fa93a68c057314630f4"
+    },
+    {
+      "condition": "v4-read-core",
+      "presetId": "dsv4-official-v4-read-core",
+      "compositionSha256": "412d2bc9051572f8ab809abd1ff80bdc49830ce553e99e76dc021fb6ee31f5be"
+    },
+    {
+      "condition": "v5-read-noted-core",
+      "presetId": "dsv4-official-v5-read-noted-core",
+      "compositionSha256": "9f298454decf44010c2408e9ed24d6bddc9b89710bc9db352befd88200e8f6c4"
+    },
+    {
+      "condition": "v6-prefetched-core",
+      "presetId": "dsv4-official-v6-prefetched-core",
+      "compositionSha256": "0db6abfa709761d6cea9d8def26669b8218a54cd68049e27ea51d7c319976a26"
+    }
+  ]
+}

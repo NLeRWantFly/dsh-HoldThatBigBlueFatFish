@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "agentRequests": 3,
+  "firstTools": [
+    "pwsh",
+    "read"
+  ],
+  "promotedTools": [
+    "edit",
+    "glob",
+    "grep",
+    "pwsh",
+    "read",
+    "write"
+  ],
+  "inventoryDenials": 2
+}

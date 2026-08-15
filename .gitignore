@@ -1,0 +1,17 @@
+# Raw model runs and generated workspaces are intentionally local.
+.project2-handoffs/
+.dsh-data/experiments/*/runs/
+
+# Evaluation-only presets are generated locally; publish only the production preset.
+.dsh-data/.agent-presets/*
+!.dsh-data/.agent-presets/dsv4-progressive-guarded/
+!.dsh-data/.agent-presets/dsv4-progressive-guarded/**
+
+# The older first-action fixture contains copied workspaces and is not part of this release.
+.dsh-data/experiments/dsv4-first-action/
+
+# Local runtime files.
+*.log
+node_modules/
+.DS_Store
+Thumbs.db

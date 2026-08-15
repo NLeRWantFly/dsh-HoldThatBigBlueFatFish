@@ -1,0 +1,31 @@
+{
+  "standardPath": "<DSH_SOURCE_ROOT>/apps/cli/config/agent-presets/standard/agent.cordis.yml",
+  "standardSha256": "cb98756a9ed76ca351a45a0ba138a97bf0ab7eead4fe2f1e9d1c9f9ec97937f0",
+  "presets": [
+    {
+      "condition": "standard-full",
+      "presetId": "dsv4-official-standard-full",
+      "compositionSha256": "cbe43a73e04525dea7b9f0654162cba82e39740a30d06e598cfabc725be00838"
+    },
+    {
+      "condition": "minimal-full",
+      "presetId": "dsv4-official-minimal-full",
+      "compositionSha256": "793fd903334969122b3749912abdf0a4228af8a8640c5be0e1d8ca2e435ecc47"
+    },
+    {
+      "condition": "standard-anchored",
+      "presetId": "dsv4-official-standard-anchored",
+      "compositionSha256": "d5f9b87cb0b41c3b248b1c99520403def174d17f570aac74d30f5e7ead4c8d35"
+    },
+    {
+      "condition": "minimal-fixed",
+      "presetId": "dsv4-official-minimal-fixed",
+      "compositionSha256": "9936886ad3ac69cab97b8f8397cc68c78d66d5a650ab68cff58767de457b775f"
+    },
+    {
+      "condition": "minimal-anchored",
+      "presetId": "dsv4-official-minimal-anchored",
+      "compositionSha256": "2c6c754700896c6ed40f9898dc585c99a69b192738e2cfa366b8bd9051c8e125"
+    }
+  ]
+}

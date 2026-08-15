@@ -1,0 +1,21 @@
+{
+  "probe": [
+    "standard-full",
+    "minimal-full",
+    "standard-anchored",
+    "minimal-fixed",
+    "minimal-anchored"
+  ],
+  "project2": {
+    "windows-native": [
+      "standard-full",
+      "minimal-fixed",
+      "minimal-anchored"
+    ],
+    "linux-docker": [
+      "minimal-anchored",
+      "standard-full",
+      "minimal-fixed"
+    ]
+  }
+}

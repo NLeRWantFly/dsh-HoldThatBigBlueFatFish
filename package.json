@@ -1,0 +1,17 @@
+{
+  "name": "dsv4-progressive-guarded",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Progressive tool disclosure and runtime containment preset for DeepSeek Harness.",
+  "scripts": {
+    "test": "node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/verify.mjs",
+    "aggregate": "node .dsh-data/experiments/dsv4-anchored-v2-efficient/aggregate-results.mjs"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "deepseek-v4",
+    "agent-tools"
+  ],
+  "license": "MIT"
+}

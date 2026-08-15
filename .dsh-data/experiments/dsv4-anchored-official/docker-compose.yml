@@ -1,0 +1,21 @@
+services:
+  dsh-linux:
+    build:
+      context: ..
+      dockerfile: dsv4-anchored-official/docker/Dockerfile
+      args:
+        DSH_COMMIT: 47f943859bef60e4160492346772ded9b24f765a
+    image: dsv4-anchored-official-linux:latest
+    container_name: dsv4-anchored-official-linux
+    ports:
+      - "127.0.0.1:3091:3091"
+    environment:
+      DSH_HOME: /run/dsh-home
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Set a rotated DEEPSEEK_API_KEY in the host process}
+      DEEPSEEK_BASE_URL: https://api.deepseek.com
+    command: ["node", "/experiments/dsv4-anchored-official/docker/entrypoint.mjs"]
+    tmpfs:
+      - /run/dsh-home:mode=0700
+    volumes:
+      - ../:/experiments
+      - ../../.agent-presets:/mnt/presets:ro

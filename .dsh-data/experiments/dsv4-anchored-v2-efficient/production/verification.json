@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "presetId": "dsv4-progressive-guarded",
+  "files": {
+    "agent.cordis.yml": {
+      "bytes": 13391,
+      "sha256": "609a8c50234bfee035bc2f69868af060dd37759dc7dce2d2cd6d5f415b042a93"
+    },
+    "preset.yml": {
+      "bytes": 150,
+      "sha256": "7a3259d866e879b8963b4b3cb74141eaab3eea45cffb57493db9ca77fa7240d1"
+    },
+    "progressive-guard.mjs": {
+      "bytes": 8207,
+      "sha256": "f6b767149ebebb98a9acf65d71e120898a266195975514725b99b4cb3c963965"
+    },
+    "README.md": {
+      "bytes": 1988,
+      "sha256": "10a765fe87f90898aec5b3e0f0017e9e770158e16af2605455194cdf8e4b9f43"
+    }
+  },
+  "invariants": {
+    "minimalPersona": true,
+    "runtimeContextDisabled": true,
+    "singlePluginRegistration": true,
+    "noEvaluationStop": true,
+    "pluginCopyByteIdentical": true
+  }
+}
