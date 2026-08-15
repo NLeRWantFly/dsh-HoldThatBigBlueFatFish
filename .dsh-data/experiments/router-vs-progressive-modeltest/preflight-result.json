@@ -1,0 +1,21 @@
+{
+  "routerCommit": "d4655d5874883c6994721236f0ece97499570eac",
+  "modelCalls": 0,
+  "routerModeForModeltest": "weak",
+  "routerBandForModeltest": "weak",
+  "routerFirstCore": [
+    "read",
+    "write",
+    "edit"
+  ],
+  "registeredRouterTools": [
+    "dev_router_status",
+    "dev_router_mode",
+    "dev_mode_subagent"
+  ],
+  "bootstrapEventPath": {
+    "ok": false,
+    "name": "ReferenceError",
+    "message": "bandOf is not defined"
+  }
+}

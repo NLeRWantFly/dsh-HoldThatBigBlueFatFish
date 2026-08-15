@@ -1,0 +1,76 @@
+{
+  "runId": "run-win-2026-08-15_12-34-39-162",
+  "qualityComparable": false,
+  "qualityCaveat": "router-standard completed; progressive-guarded was censored by DeepSeek API 402 Insufficient Balance before any mutation",
+  "route": {
+    "provider": "deepseek-official",
+    "model": "deepseek-v4-pro",
+    "reasoningEffort": "max"
+  },
+  "endpoint": "https://api.deepseek.com",
+  "platform": "windows-native",
+  "modeltestCommit": "04255b55f16c4439e538239fb9783070c4165081",
+  "rows": [
+    {
+      "condition": "router-standard",
+      "completed": true,
+      "scoreStatus": "complete",
+      "abilityDraft": 92.5,
+      "shipDraft": 92.5,
+      "releaseClassHint": "B+",
+      "blockers": ["M-fidelity", "E-contract", "E-build"],
+      "requests": 165,
+      "toolCalls": 188,
+      "mutations": 81,
+      "reasoningTokens": 41303,
+      "outputTokens": 116007,
+      "cacheMissInputTokens": 213981,
+      "cacheHitInputTokens": 29044736,
+      "cacheHitRate": 0.992687,
+      "estimatedCostUsd": 0.29929499,
+      "elapsedSec": 2569.698
+    },
+    {
+      "condition": "progressive-guarded",
+      "completed": false,
+      "scoreStatus": "censored-402",
+      "partialAbilityDraft": 48,
+      "partialShipDraft": 48,
+      "partialReleaseClassHint": "D",
+      "requests": 74,
+      "toolCalls": 107,
+      "mutations": 0,
+      "reasoningTokens": 12061,
+      "outputTokens": 21096,
+      "cacheMissInputTokens": 144470,
+      "cacheHitInputTokens": 3904640,
+      "cacheHitRate": 0.964321,
+      "estimatedCostUsd": 0.09535229,
+      "elapsedSec": 1401.068,
+      "terminal": {
+        "kind": "error",
+        "error": { "code": "QUOTA", "status": 402, "message": "Insufficient Balance" }
+      }
+    }
+  ],
+  "equalFirst74Requests": [
+    {
+      "condition": "router-standard",
+      "toolCalls": 95,
+      "mutations": 15,
+      "reasoningTokens": 22232,
+      "outputTokens": 41322,
+      "cacheMissInputTokens": 165421,
+      "estimatedCostUsd": 0.13227431
+    },
+    {
+      "condition": "progressive-guarded",
+      "toolCalls": 107,
+      "mutations": 0,
+      "reasoningTokens": 12061,
+      "outputTokens": 21096,
+      "cacheMissInputTokens": 144470,
+      "estimatedCostUsd": 0.09535229
+    }
+  ]
+}

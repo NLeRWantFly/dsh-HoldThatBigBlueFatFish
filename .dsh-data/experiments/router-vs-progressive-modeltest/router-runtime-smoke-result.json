@@ -1,0 +1,54 @@
+{
+  "routerCommit": "d4655d5874883c6994721236f0ece97499570eac",
+  "modelCalls": 2,
+  "promptError": null,
+  "turnEnded": true,
+  "turnEndReasons": [
+    {
+      "kind": "completed"
+    }
+  ],
+  "firstTools": [
+    "edit",
+    "pwsh",
+    "read",
+    "write"
+  ],
+  "laterTools": [
+    "ask_user_question",
+    "create_goal",
+    "dev_mode_subagent",
+    "dev_router_mode",
+    "dev_router_status",
+    "edit",
+    "exit_plan_mode",
+    "get_goal",
+    "glob",
+    "grep",
+    "interrupt_agent",
+    "job_kill",
+    "job_list",
+    "job_output",
+    "list_agents",
+    "pwsh",
+    "ralph",
+    "read",
+    "read_image",
+    "send_message",
+    "skill",
+    "subagent",
+    "subagent_fork",
+    "todo_write",
+    "update_goal",
+    "web_search",
+    "workflow",
+    "write"
+  ],
+  "firstSystemChars": 6502,
+  "requestReasoningEffort": [
+    "max",
+    "max"
+  ],
+  "referenceErrorsInStderr": 0,
+  "stderrTail": ""
+}

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "provenance": "User-supplied audit summary of a saved DSH trajectory; raw event JSONL was not part of this comparison checkout.",
+  "comparability": "Qualitative supporting evidence only. The task, prompt, provider route and effort differ from the official Modeltest run.",
+  "rows": [
+    {
+      "experiment": "historical-opencode-game",
+      "runId": "reported-dsh-progressive-game",
+      "suite": "game-generation",
+      "platform": "windows-native",
+      "condition": "progressive-guarded-historical",
+      "provider": "opencode-go",
+      "model": "deepseek-v4-pro",
+      "reasoningEffort": "high",
+      "status": "reported-complete",
+      "dataQuality": "reported-approximate",
+      "userPrompt": "帮我生成一个无人深空结合我的世界的游戏",
+      "comparisonUrl": "https://opncd.ai/share/fnOGJyIn",
+      "assistantSteps": 47,
+      "toolCalls": 55,
+      "toolCallsByName": {
+        "pwsh": 26,
+        "edit": 19,
+        "grep": 4,
+        "write": 3,
+        "other": 3
+      },
+      "mutationCalls": 22,
+      "outputTokensApprox": 103600,
+      "reasoningTokensApprox": 65600,
+      "reasoningShareApprox": 0.633,
+      "firstStepReasoningTokensApprox": 10596,
+      "largestSingleStepTokensApprox": 49838,
+      "largestArtifactCharsApprox": 71000,
+      "largestArtifactLines": 1792,
+      "postFirstSuccessfulSimulation": {
+        "assistantSteps": 16,
+        "toolCalls": 18,
+        "outputTokens": 17078,
+        "reasoningTokens": 12144
+      },
+      "postSecondSuccessfulSimulationToolCalls": 7,
+      "observedDefectsFound": [
+        "selectedSlot was undeclared",
+        "chunkGroup was undeclared"
+      ],
+      "notes": "Useful evidence for token-before-guard, mutation burst and missing convergence control; excluded from official-API totals and direct quality deltas."
+    }
+  ]
+}
