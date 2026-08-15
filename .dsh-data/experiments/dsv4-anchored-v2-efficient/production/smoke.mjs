@@ -14,11 +14,9 @@ const here = dirname(fileURLToPath(import.meta.url))
 const sourceRoot = resolve(process.env.DSH_SOURCE_ROOT ?? process.cwd())
 const presetRoot = resolve(process.env.DSH_PRESET_ROOT ?? join(here, '..', '..', '..', '.agent-presets'))
 const preset = 'dsv4-progressive-guarded'
-const nativeShell = process.platform === 'win32' ? 'pwsh' : 'bash'
-const probeCommand = process.platform === 'win32'
-  ? 'Get-ChildItem -Force | Select-Object -First 50 Name,Mode,Length'
-  : 'find . -maxdepth 1 -mindepth 1 -print | head -n 50'
-const locationCommand = process.platform === 'win32' ? 'Get-Location' : 'pwd'
+const nativeShell = 'bash'
+const probeCommand = 'find . -maxdepth 1 -mindepth 1 -print | head -n 50'
+const locationCommand = 'pwd'
 const temporary = await mkdtemp(join(tmpdir(), 'dsv4-production-smoke-'))
 const home = join(temporary, 'home')
 const workspace = join(temporary, 'workspace')
@@ -169,61 +167,65 @@ try {
 
   const agentRequests = requests.filter(request => Array.isArray(request.tools) && request.tools.length > 0)
   assert.equal(agentRequests.length, 6)
-  assert.deepEqual(agentRequests[0].tools.map(tool => tool.function.name).sort(), [nativeShell, 'read'].sort())
+  const core = ['edit', 'glob', 'grep', nativeShell, 'read', 'write'].sort()
+  assert.deepEqual(agentRequests[0].tools.map(tool => tool.function.name).sort(), core)
   const initialShell = agentRequests[0].tools.find(tool => tool.function.name === nativeShell).function
-  assert.deepEqual(Object.keys(initialShell.parameters.properties).sort(), ['command', 'description', 'timeoutMs', 'workdir'])
+  assert.deepEqual(Object.keys(initialShell.parameters.properties).sort(), ['command', 'description', 'run_in_background', 'timeoutMs', 'workdir'])
   assert.equal(initialShell.parameters.additionalProperties, false)
   assert.doesNotMatch(initialShell.description, /DSH_|environment facts/i)
+  assert.doesNotMatch(JSON.stringify(initialShell), /sandbox_permissions|danger-full-access/i)
 
-  const core = ['edit', 'glob', 'grep', nativeShell, 'read', 'write'].sort()
-  assert.deepEqual(agentRequests[1].tools.map(tool => tool.function.name).sort(), core)
-  for (const request of agentRequests.slice(2)) assert.deepEqual(request.tools, agentRequests[1].tools)
+  for (const request of agentRequests.slice(1)) assert.deepEqual(request.tools, agentRequests[0].tools)
   const promotedShell = agentRequests[1].tools.find(tool => tool.function.name === nativeShell).function
   const initialShellSchemaBytes = Buffer.byteLength(JSON.stringify(initialShell))
   const promotedShellSchemaBytes = Buffer.byteLength(JSON.stringify(promotedShell))
-  assert(initialShellSchemaBytes < promotedShellSchemaBytes)
-  const writeSchema = agentRequests[1].tools.find(tool => tool.function.name === 'write').function
+  assert.equal(initialShellSchemaBytes, promotedShellSchemaBytes)
+  const writeSchema = agentRequests[0].tools.find(tool => tool.function.name === 'write').function
   assert.equal(writeSchema.parameters.properties.content.maxLength, 12_000)
 
   const systems = agentRequests.map(request => request.messages.find(message => message.role === 'system')?.content ?? '')
   assert.deepEqual([...new Set(systems)], [PERSONA])
   const headers = history.filter(event => event.type === 'request/header')
-  assert.equal(headers.length, 2)
+  assert.equal(headers.length, 1)
   assert(headers.every(event => event.data.header.config.maxTokens === 16_384))
-  assert.deepEqual(headers.map(event => event.data.header.config.reasoningEffort), ['high', 'high'])
+  assert.deepEqual(headers.map(event => event.data.header.config.reasoningEffort), ['high'])
 
   const denialText = history.filter(event => event.type === 'tool/result').map(event => JSON.stringify(event.data?.message?.content ?? '')).join('\n')
   assert.equal((denialText.match(/PROGRESSIVE_MUTATION_TOO_LARGE/g) ?? []).length, 1)
   assert.equal((denialText.match(/PROGRESSIVE_STOP_AFTER_CHECK/g) ?? []).length, 1)
   const probeResult = history.find(event => event.type === 'tool/result' && JSON.stringify(event.data).includes('call-probe'))
-  const changedHeader = headers.find(event => event.data?.reason === 'change')
-  assert(probeResult.seq < changedHeader.seq)
+  assert(probeResult)
 
   const toolHashes = [...new Set(agentRequests.map(request => sha256(JSON.stringify(request.tools))))]
-  assert.equal(toolHashes.length, 2)
+  assert.equal(toolHashes.length, 1)
   const result = {
     ok: true,
     agentRequests: agentRequests.length,
     requestHeaders: headers.length,
     schemaTransitions: toolHashes.length - 1,
     platform: process.platform,
-    firstTools: [nativeShell, 'read'].sort(),
-    promotedTools: core,
+    shellRuntime: process.platform === 'win32' ? 'portable-bash-over-sandboxed-pwsh' : 'native-bash',
+    firstTools: core,
+    fixedTools: core,
     maxTokens: 16_384,
     reasoningEffort: 'high',
-    emptyWorkspacePromotion: true,
+    emptyWorkspaceProbe: true,
+    fixedToolSchema: true,
     oversizedMutationDenials: 1,
     convergenceDenials: 1,
     systemSha256: sha256(PERSONA),
-    initialShellSchemaBytes,
-    promotedShellSchemaBytes,
+    firstShellSchemaBytes: initialShellSchemaBytes,
+    laterShellSchemaBytes: promotedShellSchemaBytes,
     toolSchemaSha256: toolHashes,
   }
   await writeFile(join(here, 'smoke-result.json'), `${JSON.stringify(result, null, 2)}\n`, 'utf8')
   console.log(JSON.stringify(result, null, 2))
 } finally {
-  dsh.kill('SIGTERM')
-  await new Promise(resolveExit => dsh.once('exit', resolveExit)).catch(() => undefined)
+  if (dsh.exitCode === null && dsh.signalCode === null) {
+    const exited = new Promise(resolveExit => dsh.once('exit', resolveExit))
+    dsh.kill('SIGTERM')
+    await Promise.race([exited, new Promise(resolveWait => setTimeout(resolveWait, 5_000))]).catch(() => undefined)
+  }
   await new Promise(resolveClose => api.close(resolveClose))
   await rm(temporary, { recursive: true, force: true })
 }

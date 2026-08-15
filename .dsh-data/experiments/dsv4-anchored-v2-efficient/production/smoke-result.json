@@ -1,31 +1,36 @@
 {
   "ok": true,
   "agentRequests": 6,
-  "requestHeaders": 2,
-  "schemaTransitions": 1,
+  "requestHeaders": 1,
+  "schemaTransitions": 0,
   "platform": "win32",
+  "shellRuntime": "portable-bash-over-sandboxed-pwsh",
   "firstTools": [
-    "pwsh",
-    "read"
-  ],
-  "promotedTools": [
+    "bash",
     "edit",
     "glob",
     "grep",
-    "pwsh",
+    "read",
+    "write"
+  ],
+  "fixedTools": [
+    "bash",
+    "edit",
+    "glob",
+    "grep",
     "read",
     "write"
   ],
   "maxTokens": 16384,
   "reasoningEffort": "high",
-  "emptyWorkspacePromotion": true,
+  "emptyWorkspaceProbe": true,
+  "fixedToolSchema": true,
   "oversizedMutationDenials": 1,
   "convergenceDenials": 1,
-  "systemSha256": "b7436ed966eb041a02de60706a0c7b37cbd946d9598770a00611ed2fbdaf6bc9",
-  "initialShellSchemaBytes": 1038,
-  "promotedShellSchemaBytes": 4445,
+  "systemSha256": "4a5313e078508ce0bd41e4a6dc3a3c09cd775a107347aae115b7265639a36806",
+  "firstShellSchemaBytes": 1037,
+  "laterShellSchemaBytes": 1037,
   "toolSchemaSha256": [
-    "5a041114349b1f5902613745d5d337fed3bc2acaef87e073f2ae63ff1d64edef",
-    "c73652735acb104df0878a72044562ef30e05f47f57323ef05ab6b162b01b498"
+    "5885ebb60da13baa9199cd163c0175516492467ca8ec0ab0e3eda76bc0de6384"
   ]
 }

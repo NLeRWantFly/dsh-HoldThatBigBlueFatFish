@@ -8,7 +8,7 @@ import { PERSONA } from './progressive-guard.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const preset = resolve(here, '..', '..', '..', '.agent-presets', 'dsv4-progressive-guarded')
-const files = ['agent.cordis.yml', 'preset.yml', 'progressive-guard.mjs', 'model-policy.mjs', 'README.md']
+const files = ['agent.cordis.yml', 'preset.yml', 'progressive-guard.mjs', 'model-policy.mjs', 'portable-bash.mjs', 'README.md']
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex')
@@ -21,6 +21,11 @@ assert(composition.includes('complete: true'))
 assert(composition.includes('includeRuntimeContext: false'))
 assert.equal((composition.match(/id: dsv4-progressive-guard/g) ?? []).length, 1)
 assert(composition.includes("name: './progressive-guard.mjs'"))
+assert(composition.includes('modelPolicy: pro'))
+assert(composition.includes('shellTools: [bash]'))
+assert(composition.includes('id: dsv4-portable-bash-windows'))
+assert(composition.includes("name: './portable-bash.mjs'"))
+assert(composition.includes("name: '@deepseek-ai/dsh-tool-pwsh'"))
 assert(!composition.includes('probe-stop'))
 assert(!composition.includes('evaluation'))
 for (const expected of [
@@ -32,6 +37,8 @@ for (const expected of [
 ]) assert(composition.includes(expected))
 assert.deepEqual(contents['progressive-guard.mjs'], await readFile(join(here, 'progressive-guard.mjs')))
 assert.deepEqual(contents['model-policy.mjs'], await readFile(join(here, 'model-policy.mjs')))
+assert.deepEqual(contents['portable-bash.mjs'], await readFile(join(here, 'portable-bash.mjs')))
+assert.doesNotMatch(contents['portable-bash.mjs'].toString('utf8'), /sandbox_permissions|danger-full-access/)
 assert.deepEqual(contents['README.md'], await readFile(join(here, 'README.md')))
 for (const [file, content] of Object.entries(contents)) {
   assert.doesNotMatch(content.toString('utf8'), /\bsk-[A-Za-z0-9_-]{20,}\b/, `${file} contains a credential-like value`)
@@ -42,12 +49,13 @@ const result = {
   presetId: 'dsv4-progressive-guarded',
   files: Object.fromEntries(files.map(file => [file, { bytes: contents[file].length, sha256: sha256(contents[file]) }])),
   invariants: {
-    stableVerticalSlicePersona: true,
-    modelSpecificPersona: true,
+    minimalStableProPersona: true,
+    explicitProPolicy: true,
+    aclSafePortableBash: true,
     runtimeContextDisabled: true,
     singlePluginRegistration: true,
     boundedRequestGeneration: true,
-    semanticPromotion: true,
+    semanticEvidenceCompatibility: true,
     convergenceGuard: true,
     noCredentials: true,
     pluginCopyByteIdentical: true,

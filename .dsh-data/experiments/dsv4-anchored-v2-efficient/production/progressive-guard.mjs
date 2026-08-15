@@ -1,4 +1,4 @@
-import { PRO_PERSONA, applyModelPersona } from './model-policy.mjs'
+import { PRO_PERSONA, applyModelPersona, isFlashModel } from './model-policy.mjs'
 
 export const name = 'dsv4-progressive-guard'
 export const inject = ['systemPrompt', 'tools']
@@ -267,12 +267,34 @@ function projectMutationTool(tool, maxLength) {
   }
 }
 
-export function filterCatalog(assembled, events, config = {}) {
+export function progressiveDisclosureForModel(modelId) {
+  return modelId === undefined || isFlashModel(modelId)
+}
+
+export function configuredModelId(config = {}, detectedModelId) {
+  if (config.modelPolicy === 'pro') return 'deepseek-v4-pro'
+  if (config.modelPolicy === 'flash') return 'deepseek-v4-flash'
+  return detectedModelId
+}
+
+export function modelFromEvents(events) {
+  if (!Array.isArray(events)) return undefined
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index]
+    if (event?.type !== 'request/header') continue
+    const model = event?.data?.header?.config?.model
+    if (typeof model === 'string' && model.length > 0) return model
+  }
+  return undefined
+}
+
+export function filterCatalog(assembled, events, config = {}, modelId) {
   if (isPlanMode(events)) return assembled
   const available = new Set(assembled.tools.map(tool => tool.name))
   const shells = (config.shellTools ?? ['bash', 'pwsh']).filter(tool => available.has(tool))
   if (shells.length !== 1) throw new Error(`${name}: expected one native shell, got ${shells.join(',')}`)
-  const promoted = hasQualifiedEvidence(events, config)
+  const activeModelId = configuredModelId(config, modelId)
+  const promoted = !progressiveDisclosureForModel(activeModelId) || hasQualifiedEvidence(events, config)
   const requested = promoted
     ? (config.coreTools ?? ['read', 'edit', 'write', 'grep', 'glob'])
     : (config.bootstrapTools ?? ['read'])
@@ -291,11 +313,12 @@ export function filterCatalog(assembled, events, config = {}) {
 }
 
 export function shapeAssembly(assembled, events, modelId, config = {}) {
+  const activeModelId = configuredModelId(config, modelId)
   const withPersona = {
     ...assembled,
-    sections: applyModelPersona(assembled.sections, modelId),
+    sections: applyModelPersona(assembled.sections, activeModelId),
   }
-  return Array.isArray(events) ? filterCatalog(withPersona, events, config) : withPersona
+  return Array.isArray(events) ? filterCatalog(withPersona, events, config, activeModelId) : withPersona
 }
 
 function assistantCallContext(events, callId) {
@@ -434,7 +457,9 @@ export function guardDecision(exec, config = {}) {
     if (tool === 'grep' && broadGrep(args)) return INVENTORY_BLOCKED
   }
 
-  const promoted = hasQualifiedEvidence(events, config)
+  const modelId = configuredModelId(config, exec?.agent?.options?.model ?? modelFromEvents(events))
+  const promoted = !progressiveDisclosureForModel(modelId)
+    || hasQualifiedEvidence(events, config)
   if (!promoted && config.blockBootstrapWrites !== false
     && (tool === 'bash' || tool === 'pwsh')
     && BOOTSTRAP_MUTATION.some(pattern => pattern.test(command))) return BOOTSTRAP_WRITE_BLOCKED
@@ -471,7 +496,14 @@ export function apply(ctx, config = {}) {
     disposers.push(ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
       const assembled = await next()
       const events = context.agent?.session?.events
-      return shapeAssembly(assembled, events, context.agent?.options?.model, config)
+      // session.selectModel is installed through DSH's model-selection waterfall,
+      // so AgentOptions.model and the resolved variable can both be unavailable
+      // to an inner first-request listener. Production presets therefore set
+      // config.modelPolicy explicitly; these values are only safe fallbacks.
+      const modelId = assembled?.variables?.model
+        ?? context.agent?.options?.model
+        ?? modelFromEvents(events)
+      return shapeAssembly(assembled, events, modelId, config)
     }))
     disposers.push(ctx.on('agent/request', async ({ agent }, next) => {
       const request = await next()

@@ -13,10 +13,13 @@ import {
   STOP_AFTER_CHECK,
   apply,
   boundedShallowProbe,
+  configuredModelId,
   filterCatalog,
   guardDecision,
   hasQualifiedEvidence,
   isPlanMode,
+  modelFromEvents,
+  progressiveDisclosureForModel,
   shapeAssembly,
   shapeRequest,
   successfulResult,
@@ -28,6 +31,10 @@ function call(callId, name, args, seq = 10) {
 
 function result(callId, text = 'ok', seq = 11, isError = false) {
   return { type: 'tool/result', seq, data: { message: { content: [{ type: 'tool-result', toolCallId: callId, isError, content: [{ type: 'text', text }] }] } } }
+}
+
+function requestHeader(model, seq = 0) {
+  return { type: 'request/header', seq, data: { header: { config: { provider: 'deepseek-official', model } } } }
 }
 
 function assistant(calls, step = 1, seq = 1) {
@@ -133,10 +140,33 @@ const assembly = {
 }
 const proAssembly = shapeAssembly(assembly, [], 'deepseek-v4-pro')
 assert.equal(proAssembly.sections[0].text, PRO_PERSONA)
-assert.deepEqual(proAssembly.tools.map(tool => tool.name), ['read', 'pwsh'])
+assert.deepEqual(proAssembly.tools.map(tool => tool.name), ['read', 'pwsh', 'edit', 'write', 'grep', 'glob'])
 const flashAssembly = shapeAssembly(assembly, [], 'deepseek-v4-flash')
 assert.equal(flashAssembly.sections[0].text, FLASH_PERSONA)
-assert.deepEqual(flashAssembly.tools, proAssembly.tools)
+assert.deepEqual(flashAssembly.tools.map(tool => tool.name), ['read', 'pwsh'])
+assert.equal(progressiveDisclosureForModel('deepseek-v4-pro'), false)
+assert.equal(progressiveDisclosureForModel('deepseek-v4-flash'), true)
+assert.equal(progressiveDisclosureForModel(undefined), true)
+assert.equal(configuredModelId({ modelPolicy: 'pro' }, undefined), 'deepseek-v4-pro')
+assert.equal(configuredModelId({ modelPolicy: 'flash' }, 'deepseek-v4-pro'), 'deepseek-v4-flash')
+assert.deepEqual(filterCatalog(catalog, [], { modelPolicy: 'pro' }).tools.map(tool => tool.name), ['read', 'pwsh', 'edit', 'write', 'grep', 'glob'])
+assert.deepEqual(filterCatalog(catalog, [], { modelPolicy: 'flash' }).tools.map(tool => tool.name), ['read', 'pwsh'])
+assert.equal(modelFromEvents([requestHeader('deepseek-v4-pro')]), 'deepseek-v4-pro')
+assert.equal(modelFromEvents([requestHeader('deepseek-v4-pro'), requestHeader('deepseek-v4-flash', 2)]), 'deepseek-v4-flash')
+const proAfterEvidence = shapeAssembly(assembly, [
+  call('pro-read', 'read', { file_path: 'README.md' }),
+  result('pro-read', '<content>ok</content>'),
+], 'deepseek-v4-pro')
+assert.equal(JSON.stringify(proAfterEvidence.tools), JSON.stringify(proAssembly.tools))
+const proWrite = exec('write', { file_path: 'app.js', content: 'small' }, [])
+proWrite.agent.options = { model: 'deepseek-v4-pro' }
+assert.equal(guardDecision(proWrite), undefined)
+const proOversizedWrite = exec('write', { file_path: 'app.js', content: 'x'.repeat(12_001) }, [])
+proOversizedWrite.agent.options = { model: 'deepseek-v4-pro' }
+assert.equal(guardDecision(proOversizedWrite), MUTATION_TOO_LARGE)
+const persistedProWrite = exec('write', { file_path: 'app.js', content: 'small' }, [requestHeader('deepseek-v4-pro')])
+assert.equal(guardDecision(persistedProWrite), undefined)
+assert.equal(guardDecision(exec('write', { file_path: 'app.js', content: 'small' }, []), { modelPolicy: 'pro' }), undefined)
 const planAssembly = shapeAssembly(assembly, planEvents, 'deepseek-v4-flash')
 assert.equal(planAssembly.sections[0].text, FLASH_PERSONA)
 assert.equal(planAssembly.sections.some(section => section.name === 'plan-mode'), true)

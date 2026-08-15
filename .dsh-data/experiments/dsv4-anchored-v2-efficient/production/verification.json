@@ -3,28 +3,38 @@
   "presetId": "dsv4-progressive-guarded",
   "files": {
     "agent.cordis.yml": {
-      "bytes": 13856,
-      "sha256": "6ae47955bbfb185a7df08a4c713fd0539439bc82f54c1b9520a636df2cd8126b"
+      "bytes": 14209,
+      "sha256": "d9c7bb6df2835316b69335ef5df58fcb4cd43165027a2d9501e3f461816e6e28"
     },
     "preset.yml": {
-      "bytes": 158,
-      "sha256": "ae3ac185278b5f22756a3554cb2837f57b9aca9ae39ec5f6acce161c9b3346ee"
+      "bytes": 161,
+      "sha256": "4f6d7acadf459f31ca64b16b85f292599ea4fae071dbd8568b0275b3317a1e42"
     },
     "progressive-guard.mjs": {
-      "bytes": 21248,
-      "sha256": "3233442e488fdc427d5698655b0d358dd2358790d247922fe46f6382e6d55ba4"
+      "bytes": 22821,
+      "sha256": "8d1532d1fab5ef6f129e5483aa0eefaf38269354d35487681d603c045b45bb5f"
+    },
+    "model-policy.mjs": {
+      "bytes": 1258,
+      "sha256": "4391d2a4c8a6143a437743d886a87358a3a710f65933a07f29c12f1bfb936e13"
+    },
+    "portable-bash.mjs": {
+      "bytes": 6251,
+      "sha256": "53ec1f8e22d42cf7fa9bb01dc1e6b586448aaa951ddeca58d517d4de5d9da988"
     },
     "README.md": {
-      "bytes": 6995,
-      "sha256": "cc2344fdd56477c2a909695330ca29a3e01df46397355d9ba83bf58cb42831e8"
+      "bytes": 7887,
+      "sha256": "b0661fad202691a619509bc1731fcdb9b2c2a7ad3c5f84738c97e6dd21fe6688"
     }
   },
   "invariants": {
-    "stableVerticalSlicePersona": true,
+    "minimalStableProPersona": true,
+    "explicitProPolicy": true,
+    "aclSafePortableBash": true,
     "runtimeContextDisabled": true,
     "singlePluginRegistration": true,
     "boundedRequestGeneration": true,
-    "semanticPromotion": true,
+    "semanticEvidenceCompatibility": true,
     "convergenceGuard": true,
     "noCredentials": true,
     "pluginCopyByteIdentical": true

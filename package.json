@@ -2,9 +2,9 @@
   "name": "dsv4-progressive-guarded",
   "version": "0.2.0",
   "private": true,
-  "description": "Semantic bootstrap, bounded vertical slices, and convergence control for DeepSeek Harness.",
+  "description": "Stable V4 Pro context, portable bash facade, bounded vertical slices, and convergence control for DeepSeek Harness.",
   "scripts": {
-    "test": "node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/verify.mjs",
+    "test": "node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/model-policy.tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/portable-bash.tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/verify.mjs",
     "aggregate": "node .dsh-data/experiments/dsv4-anchored-v2-efficient/aggregate-results.mjs"
   },
   "keywords": [
