@@ -56,6 +56,22 @@ npm.cmd test
 
 完成数据均来自 Windows native；Linux Docker 没有形成完整可评分 run，因此不作跨 OS 结论。
 
+### bash-debug 工程修订（不调用模型）
+
+真实长任务轨迹进一步暴露了“空项目 bootstrap 误晋级、巨型单步生成、缺少纵向切片、通过测试后不收敛、PowerShell 契约过重”五个问题。`bash-debug` 分支已逐点修正；历史 14 条模型评分不重写，新验证使用本地假 API，不消耗官方 Token。
+
+| 控制点 | 旧版 | bash-debug |
+|---|---|---|
+| 空项目 | 根目录浅层查看也拒绝 | 允许 Windows/Linux 最多 50 项的浅层探针 |
+| 晋级证据 | 命令形式匹配，`Get-Content` 成功即可 | 语义调用 + 成功结果；非零 exit、异常、Harness 内部或压缩数据均无效 |
+| 生成前控制 | 无 | 稳定纵向切片 system、`maxTokens <= 16384`、模型可见 `maxLength: 12000` |
+| 实现粒度 | 晋级后可一次写入任意大文件 | 单次 12,000 字符、未检查累计 24,000、每 step 最多两个变更 |
+| 收敛 | 只拦完全相同命令的第三次重复 | 相关检查通过后总共只给两个额外诊断，换工具/换命令也不能绕过 |
+| bootstrap shell | 完整 pwsh function schema 4,445 bytes，并提示 `DSH_*` | 首请求投影为 1,038 bytes（-76.6%）；隐藏后台/提权/Harness 内部引导 |
+| 缓存边界 | 两阶段 | 仍是两个固定 schema、一次晋级；system 全程稳定 |
+
+真实 DSH smoke 共 6 个 agent request、2 个 request header、1 次 schema transition；空目录晋级、超长变更拒绝和跨工具 stop 均通过。Docker daemon 当时未运行，因此 Linux 只完成同代码路径的契约测试，仍不声称真实跨 OS 等价。
+
 ## 全部评分数据
 
 总计 14 条结果、634 次模型请求、858,011 input tokens、142,176,128 cache-read tokens、423,458 output tokens、159,096 reasoning tokens，估算费用 1.25703173 USD。
@@ -89,7 +105,9 @@ npm.cmd test
 
 ## 生产预设
 
-`dsv4-progressive-guarded` 使用短 Minimal persona。未取得证据时只暴露 `read + native shell`；成功的指定文件读取、明确测试或窄诊断后，下一请求恢复 `read/shell/edit/write/grep/glob`。所有阶段继续拦截递归/根目录盘点、全量 glob、无路径 grep、后台 shell 和无修改的重复命令。
+`dsv4-progressive-guarded` 使用固定的短纵向切片 persona。未取得证据时只暴露 `read + 投影后的 native shell`；成功的文本读取、有上限浅层探针或明确检查后，下一请求恢复 `read/shell/edit/write/grep/glob`。所有阶段继续拦截递归盘点、全量 glob、无路径 grep和后台 shell，并增加文件变更预算与测试后收敛预算。
+
+日常任务请在 Harness 模型选择中使用 `deepseek-v4-pro / high`。DSH 的 session model-selection 层权威拥有 reasoning effort，插件不会伪装覆盖 UI 中显式选择的 `max`；它会可靠地把普通请求 `maxTokens` 压到不高于 16,384。`max` 留给复制出的显式审计 preset。
 
 Plan Mode 会按持久化 `plan/mode` 事件绕过本插件，让 Harness 原生规划目录和 `exit_plan_mode` 接管。
 
@@ -105,7 +123,7 @@ Plan Mode 会按持久化 `plan/mode` 事件绕过本插件，让 Harness 原生
 <DSH_HOME>/.agent-presets/dsv4-progressive-guarded
 ```
 
-四个安装文件已逐字节哈希一致。单元测试和真实 DSH 假 API 冒烟测试均通过：首请求只有 `pwsh + read`，成功 read 后恢复 6 个核心工具，递归 shell 与 `**/*` glob 均被拒绝。验证产物：
+四个安装文件已逐字节哈希一致。单元测试和真实 DSH 假 API 冒烟测试均通过：首请求只有投影后的 `pwsh + read`，空目录浅层证据后恢复 6 个核心工具，12,001 字符写入与检查后第三个异构审计调用均被拒绝。验证产物：
 
 - [插件源码](.dsh-data/experiments/dsv4-anchored-v2-efficient/production/progressive-guard.mjs)
 - [安装说明](.dsh-data/experiments/dsv4-anchored-v2-efficient/production/README.md)

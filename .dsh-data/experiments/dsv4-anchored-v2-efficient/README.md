@@ -94,6 +94,22 @@ V6 将 onboarding 预先注入并恢复核心工具，减少了能力焦虑，�
 
 Git-style Anchored 确实能在持久化首个 `tool/call` 后恢复目录，但“产生调用”不是“取得有价值证据”。生产插件改为只有成功的指定文件读取、明确测试或窄范围诊断结果才能晋级，并在晋级后继续拦截广域盘点。
 
+## bash-debug 生产修订
+
+后续真实长任务没有新增官方模型请求，但从已保存轨迹发现了五个生产缺口，并完成代码级修订：
+
+| 缺口 | 修订 |
+|---|---|
+| 空项目不能查看根目录，压缩 session 却会误晋级 | 新增最多 50 项的 PowerShell/Bash 浅层探针；晋级同时校验调用语义和结果，失败 marker、异常文本、Harness 内部与压缩路径无效。 |
+| Guard 无法回收已生成的 49,838 Token | `agent/request` 把输出上限压到 16,384；稳定 system 规定纵向切片；mutation schema 显示 12,000 字符上限，Guard 再校验完整参数。 |
+| 晋级后单文件大爆发 | 单次 mutation 12,000、检查间累计 24,000、每 step 两次 mutation；shell 内容重定向必须改用 `write/edit`。 |
+| Repeat Guard 无法阻止换命令继续审计 | 最近相关检查成功后只允许两个额外诊断；第三个调用无论是 `read/grep/shell` 均拒绝。失败检查或成功修复会重开窗口。 |
+| pwsh 相对 bash 暴露更多实现细节 | bootstrap 将两种 native shell 都投影为短、前台-only schema；Windows smoke 中 pwsh function schema 从 4,445 降到 1,038 bytes（-76.6%）。不再诱导读取 `DSH_*`，失败结果也不会成为晋级证据。 |
+
+缓存策略仍只有两个稳定工具 hash。真实 Windows DSH 假 API smoke 记录 6 个请求、2 个 request header、1 次 schema transition；没有调用官方 API。Linux 的同路径正则、目录选择和 schema 测试通过，但 Docker daemon 未运行，没有新增真实 Linux run。
+
+一个重要的平台所有权边界是：DSH session model-selection 会在 preset 的 `agent/request` 监听器之外权威施加 reasoning effort。因此日常任务必须在 Harness 中选择 `high`；插件可靠限制 `maxTokens`，但不会声称覆盖 UI 显式选择的 `max`。
+
 ## 生产插件
 
 生成目录：
@@ -111,12 +127,12 @@ dsv4-progressive-guarded
 它保留 Harness 原生工具注册，但按请求过滤模型可见目录：
 
 ```text
-未取得合格证据：Minimal system + read + native shell
-        成功窄读取/测试/诊断
-取得合格证据后：Minimal system + read/shell/edit/write/grep/glob
+未取得合格证据：固定纵向切片 system + read + 投影后的 native shell
+     成功文本读取/有上限浅层探针/明确检查
+取得合格证据后：相同 system + read/shell/edit/write/grep/glob
 ```
 
-全程运行时 guard 会拒绝：根目录或递归仓库盘点、全量 glob、无路径 grep、后台 shell、bootstrap 阶段写操作、首 step 第三个工具调用，以及没有修改时第三次重复同一 shell 命令。晋级由持久化 `tool/call + 成功 tool/result` 重算，会话重载不会丢失状态；插件不包含评测 stop，不会在真实任务前三条消息后退出。
+全程运行时 guard 会拒绝：递归或无上限仓库盘点、全量 glob、无路径 grep、后台 shell、bootstrap 写操作、首 step 第三个工具调用、超预算 mutation，以及成功检查后的第三个额外诊断。晋级与 stop 均由持久化 event 重算，会话重载不会丢失状态；插件不包含评测 stop，不会在真实任务前三条消息后退出。
 
 Plan Mode 通过持久化 `plan/mode` 事件识别并绕过插件过滤，由 Harness 原生规划策略和 `exit_plan_mode` 工具接管。
 
@@ -133,7 +149,7 @@ node production\tests.mjs
 node production\smoke.mjs
 ```
 
-`install.mjs` 从当前 Harness 的 Standard preset 复制原生工具注册和 schema，只替换 persona/context 并加入插件。假 API 端到端冒烟测试已验证：首请求工具为 `pwsh + read`，成功 read 后恢复 6 个核心工具，两个广域盘点调用均返回 `PROGRESSIVE_INVENTORY_BLOCKED`。结果保存在 [production/smoke-result.json](production/smoke-result.json)。
+`install.mjs` 从当前 Harness 的 Standard preset 复制原生工具注册，只替换 persona/context 并加入插件。假 API 端到端冒烟测试已验证：首请求为投影后的 `pwsh + read`，空目录浅层探针后恢复 6 个核心工具，超长写入与跨工具过量审计均被拒绝；system 不变且只有一次 schema 晋级。结果保存在 [production/smoke-result.json](production/smoke-result.json)。
 
 ## 复现
 

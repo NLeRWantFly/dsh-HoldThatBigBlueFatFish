@@ -3,27 +3,30 @@
   "presetId": "dsv4-progressive-guarded",
   "files": {
     "agent.cordis.yml": {
-      "bytes": 13391,
-      "sha256": "609a8c50234bfee035bc2f69868af060dd37759dc7dce2d2cd6d5f415b042a93"
+      "bytes": 13856,
+      "sha256": "6ae47955bbfb185a7df08a4c713fd0539439bc82f54c1b9520a636df2cd8126b"
     },
     "preset.yml": {
-      "bytes": 150,
-      "sha256": "7a3259d866e879b8963b4b3cb74141eaab3eea45cffb57493db9ca77fa7240d1"
+      "bytes": 158,
+      "sha256": "ae3ac185278b5f22756a3554cb2837f57b9aca9ae39ec5f6acce161c9b3346ee"
     },
     "progressive-guard.mjs": {
-      "bytes": 8207,
-      "sha256": "f6b767149ebebb98a9acf65d71e120898a266195975514725b99b4cb3c963965"
+      "bytes": 21248,
+      "sha256": "3233442e488fdc427d5698655b0d358dd2358790d247922fe46f6382e6d55ba4"
     },
     "README.md": {
-      "bytes": 1988,
-      "sha256": "10a765fe87f90898aec5b3e0f0017e9e770158e16af2605455194cdf8e4b9f43"
+      "bytes": 6995,
+      "sha256": "cc2344fdd56477c2a909695330ca29a3e01df46397355d9ba83bf58cb42831e8"
     }
   },
   "invariants": {
-    "minimalPersona": true,
+    "stableVerticalSlicePersona": true,
     "runtimeContextDisabled": true,
     "singlePluginRegistration": true,
-    "noEvaluationStop": true,
+    "boundedRequestGeneration": true,
+    "semanticPromotion": true,
+    "convergenceGuard": true,
+    "noCredentials": true,
     "pluginCopyByteIdentical": true
   }
 }

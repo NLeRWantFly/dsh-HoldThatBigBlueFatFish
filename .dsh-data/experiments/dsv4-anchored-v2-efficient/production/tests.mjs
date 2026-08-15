@@ -3,69 +3,303 @@ import assert from 'node:assert/strict'
 import {
   BOOTSTRAP_WRITE_BLOCKED,
   FIRST_STEP_BUDGET,
+  INTERNAL_CONTEXT_BLOCKED,
   INVENTORY_BLOCKED,
+  MUTATION_TOO_LARGE,
   REPEAT_BLOCKED,
+  SHELL_CONTENT_WRITE_BLOCKED,
+  SLICE_BUDGET,
+  STOP_AFTER_CHECK,
+  apply,
+  boundedShallowProbe,
   filterCatalog,
   guardDecision,
   hasQualifiedEvidence,
   isPlanMode,
+  shapeRequest,
+  successfulResult,
 } from './progressive-guard.mjs'
 
 function call(callId, name, args, seq = 10) {
   return { type: 'tool/call', seq, data: { callId, name, arguments: JSON.stringify(args) } }
 }
 
-function result(callId, text = 'ok', seq = 11) {
-  return { type: 'tool/result', seq, data: { message: { content: [{ type: 'tool-result', toolCallId: callId, isError: false, content: [{ type: 'text', text }] }] } } }
+function result(callId, text = 'ok', seq = 11, isError = false) {
+  return { type: 'tool/result', seq, data: { message: { content: [{ type: 'tool-result', toolCallId: callId, isError, content: [{ type: 'text', text }] }] } } }
 }
 
-function assistant(calls, step = 1) {
-  return { type: 'assistant/message', data: { step, message: { content: calls.map((entry, index) => ({ type: 'tool-call', id: `c${index + 1}`, name: entry.name, arguments: entry.args })) } } }
+function assistant(calls, step = 1, seq = 1) {
+  return {
+    type: 'assistant/message',
+    seq,
+    data: {
+      step,
+      message: {
+        content: calls.map((entry, index) => ({
+          type: 'tool-call',
+          id: entry.id ?? `c${index + 1}`,
+          name: entry.name,
+          arguments: entry.args,
+        })),
+      },
+    },
+  }
 }
 
 function exec(name, args, events, callId = 'c1') {
   return { name, arguments: args, callId, agent: { session: { events } } }
 }
 
-const initial = []
-const catalog = { tools: ['read', 'pwsh', 'edit', 'write', 'grep', 'glob', 'web_search', 'todo_write'].map(name => ({ name, description: name, parameters: { type: 'object' } })) }
-assert.deepEqual(filterCatalog(catalog, []).tools.map(tool => tool.name), ['read', 'pwsh'])
+const parameter = (description, required = false) => ({ type: 'string', description, ...(required ? { required: true } : {}) })
+const catalog = {
+  tools: [
+    { name: 'read', description: 'Read file', parameters: { type: 'object', properties: { file_path: parameter('path', true) }, required: ['file_path'] } },
+    {
+      name: 'pwsh',
+      description: `PowerShell full schema ${'verbose '.repeat(100)}`,
+      parameters: {
+        type: 'object',
+        properties: {
+          command: parameter('command', true),
+          description: parameter('description', true),
+          timeoutMs: { type: 'number' },
+          workdir: parameter('workdir'),
+          run_in_background: { type: 'boolean' },
+          sandbox_permissions: parameter('sandbox'),
+          justification: parameter('why'),
+        },
+        required: ['command', 'description'],
+      },
+    },
+    {
+      name: 'edit',
+      description: 'Edit file',
+      parameters: {
+        type: 'object',
+        properties: {
+          file_path: parameter('path', true),
+          old_string: parameter('old', true),
+          new_string: parameter('new', true),
+        },
+        required: ['file_path', 'old_string', 'new_string'],
+      },
+    },
+    {
+      name: 'write',
+      description: 'Write file',
+      parameters: {
+        type: 'object',
+        properties: { file_path: parameter('path', true), content: parameter('content', true) },
+        required: ['file_path', 'content'],
+      },
+    },
+    { name: 'grep', description: 'Search file', parameters: { type: 'object', properties: { pattern: parameter('pattern'), path: parameter('path') } } },
+    { name: 'glob', description: 'Match files', parameters: { type: 'object', properties: { pattern: parameter('pattern') } } },
+    { name: 'web_search', description: 'web', parameters: { type: 'object', properties: {} } },
+    { name: 'todo_write', description: 'todo', parameters: { type: 'object', properties: {} } },
+  ],
+}
+
+// Bootstrap schema is small, deterministic, foreground-only, and does not advertise DSH internals.
+const initialA = filterCatalog(catalog, [])
+const initialB = filterCatalog(catalog, [])
+assert.deepEqual(initialA.tools.map(tool => tool.name), ['read', 'pwsh'])
+assert.equal(JSON.stringify(initialA), JSON.stringify(initialB))
+assert.notEqual(initialA.tools[1], catalog.tools[1])
+assert.equal(initialA.tools[1].parameters.properties.run_in_background, undefined)
+assert.equal(initialA.tools[1].parameters.properties.sandbox_permissions, undefined)
+assert.equal(initialA.tools[1].parameters.additionalProperties, false)
+assert.doesNotMatch(initialA.tools[1].description, /environment facts|DSH_\*/i)
+assert.match(initialA.tools[1].description, /at most 50 immediate entries/i)
+assert(JSON.stringify(initialA.tools[1]).length < JSON.stringify(catalog.tools[1]).length)
+assert(catalog.tools[1].parameters.properties.run_in_background)
+
 const planEvents = [{ type: 'plan/mode', data: { active: true } }]
 assert.equal(isPlanMode(planEvents), true)
 assert.equal(filterCatalog(catalog, planEvents), catalog)
 assert.equal(guardDecision(exec('glob', { pattern: '**/*' }, planEvents)), undefined)
 assert.equal(isPlanMode([...planEvents, { type: 'plan/mode', data: { active: false } }]), false)
+
+// Promotion requires valid project evidence, not merely a matching command spelling.
 const read = call('read-1', 'read', { file_path: 'ONBOARDING_TODO.md' })
-assert.equal(hasQualifiedEvidence([read, result('read-1')]), true)
-assert.deepEqual(filterCatalog(catalog, [read, result('read-1')]).tools.map(tool => tool.name), ['read', 'pwsh', 'edit', 'write', 'grep', 'glob'])
-assert.equal(filterCatalog(catalog, [read, result('read-1')]).tools[0], catalog.tools[0])
-assert.equal(hasQualifiedEvidence([call('list', 'pwsh', { command: 'Get-ChildItem -Force' }), result('list')]), false)
+assert.equal(hasQualifiedEvidence([read, result('read-1', '<content>todo</content>')]), true)
+assert.equal(hasQualifiedEvidence([read, result('read-1', 'Access denied', 11, true)]), false)
+assert.equal(hasQualifiedEvidence([
+  call('compressed', 'read', { file_path: 'session.jsonl.zstd' }),
+  result('compressed', '\u0000\ufffd\ufffdgarbage'),
+]), false)
+assert.equal(hasQualifiedEvidence([
+  call('dsh', 'pwsh', { command: 'Get-Content $env:DSH_SESSION_JSONL' }),
+  result('dsh', '[exit code: 0]\n\ufffd\ufffdgarbage'),
+]), false)
 
-const rootList = [assistant([{ name: 'pwsh', args: { command: 'Get-ChildItem -Force | Select-Object Name' } }])]
-assert.equal(guardDecision(exec('pwsh', { command: 'Get-ChildItem -Force | Select-Object Name' }, rootList)), INVENTORY_BLOCKED)
-assert.equal(guardDecision(exec('pwsh', { command: 'python tests\\run_public_tests.py project2_task' }, initial)), undefined)
-assert.equal(guardDecision(exec('pwsh', { command: "Set-Content -Path x.txt -Value 'x'" }, initial)), BOOTSTRAP_WRITE_BLOCKED)
+const boundedPwsh = 'Get-ChildItem -Force | Select-Object -First 50 Name,Mode,Length'
+assert.equal(boundedShallowProbe('pwsh', boundedPwsh), true)
+assert.equal(guardDecision(exec('pwsh', { command: boundedPwsh }, [])), undefined)
+const probe = call('probe', 'pwsh', { command: boundedPwsh })
+assert.equal(hasQualifiedEvidence([probe, result('probe', '[exit code: 0]')]), true)
+assert.equal(hasQualifiedEvidence([probe, result('probe', '[exit code: 1]')]), false)
+assert.equal(hasQualifiedEvidence([probe, result('probe', 'ERROR: permission denied')]), false)
+assert.equal(hasQualifiedEvidence([probe, result('probe', 'ReferenceError: broken')]), false)
+assert.equal(hasQualifiedEvidence([probe, result('probe', 'Get-ChildItem : Access is denied\nCategoryInfo : PermissionDenied')]), false)
+assert.equal(successfulResult(result('ok', '10 passed, 0 failed\n[exit code: 0]')), true)
+assert.equal(successfulResult(result('bad', 'FAILED tests/test_a.py\n[exit code: 1]')), false)
+assert.equal(guardDecision(exec('pwsh', { command: 'Get-ChildItem -Force' }, [])), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('pwsh', { command: 'Get-ChildItem -Force | Select-Object -First 51 Name' }, [])), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('pwsh', { command: 'Get-ChildItem -Path . -Force | Select-Object -First 51 Name' }, [])), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('pwsh', { command: 'Get-ChildItem -LiteralPath src -Force | Select-Object -First 50 Name' }, [])), undefined)
+assert.equal(boundedShallowProbe('pwsh', `${boundedPwsh}\nGet-ChildItem -Recurse`), false)
+assert.equal(guardDecision(exec('pwsh', { command: 'Get-ChildItem Env:DSH_*' }, [])), INTERNAL_CONTEXT_BLOCKED)
+assert.equal(guardDecision(exec('pwsh', { command: 'Get-Content $env:DSH_SESSION_JSONL' }, [])), INTERNAL_CONTEXT_BLOCKED)
 
-const promoted = [read, result('read-1')]
-assert.equal(guardDecision(exec('glob', { pattern: '**/*' }, promoted)), INVENTORY_BLOCKED)
-assert.equal(guardDecision(exec('glob', { pattern: 'project2_task/**/*.py' }, promoted)), undefined)
-assert.equal(guardDecision(exec('grep', { pattern: 'TODO' }, promoted)), INVENTORY_BLOCKED)
-assert.equal(guardDecision(exec('grep', { pattern: 'TODO', path: 'project2_task' }, promoted)), undefined)
+const boundedBash = 'find . -maxdepth 1 -mindepth 1 -print | head -n 50'
+assert.equal(boundedShallowProbe('bash', boundedBash), true)
+assert.equal(boundedShallowProbe('bash', 'ls -la | head -n 50'), true)
+assert.equal(boundedShallowProbe('bash', 'find . -maxdepth 2 -print | head -n 50'), false)
+const bashCatalog = { ...catalog, tools: catalog.tools.map(tool => tool.name === 'pwsh' ? { ...tool, name: 'bash' } : tool) }
+assert.deepEqual(filterCatalog(bashCatalog, []).tools.map(tool => tool.name), ['read', 'bash'])
+assert.equal(guardDecision(exec('bash', { command: boundedBash }, [])), undefined)
+assert.equal(guardDecision(exec('bash', { command: 'find . -type f' }, [])), INVENTORY_BLOCKED)
 
+// The promoted catalog is stable and gives mutation schemas a model-visible bound.
+const promoted = [read, result('read-1', '<content>todo</content>')]
+const coreA = filterCatalog(catalog, promoted)
+const coreB = filterCatalog(catalog, promoted)
+assert.deepEqual(coreA.tools.map(tool => tool.name), ['read', 'pwsh', 'edit', 'write', 'grep', 'glob'])
+assert.equal(JSON.stringify(coreA), JSON.stringify(coreB))
+assert.equal(coreA.tools[0], catalog.tools[0])
+assert.equal(coreA.tools.find(tool => tool.name === 'pwsh'), catalog.tools[1])
+assert.equal(coreA.tools.find(tool => tool.name === 'write').parameters.properties.content.maxLength, 12_000)
+assert.equal(coreA.tools.find(tool => tool.name === 'edit').parameters.properties.old_string.maxLength, 12_000)
+assert.equal(coreA.tools.find(tool => tool.name === 'edit').parameters.properties.new_string.maxLength, 12_000)
+assert.equal(catalog.tools.find(tool => tool.name === 'write').parameters.properties.content.maxLength, undefined)
+
+// First-step, inventory, background, and bootstrap mutation containment.
 const three = [assistant([
   { name: 'read', args: { file_path: 'a' } },
   { name: 'read', args: { file_path: 'b' } },
   { name: 'read', args: { file_path: 'c' } },
 ])]
 assert.equal(guardDecision(exec('read', { file_path: 'c' }, [...promoted, ...three], 'c3')), FIRST_STEP_BUDGET)
+assert.equal(guardDecision(exec('pwsh', { command: 'npm test', run_in_background: true }, promoted)), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('pwsh', { command: 'python tests\\run_public_tests.py project2_task' }, [])), undefined)
+assert.equal(guardDecision(exec('pwsh', { command: "Set-Content -Path x.txt -Value 'x'" }, [])), BOOTSTRAP_WRITE_BLOCKED)
+assert.equal(guardDecision(exec('glob', { pattern: '**/*' }, promoted)), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('glob', { pattern: 'project2_task/**/*.py' }, promoted)), undefined)
+assert.equal(guardDecision(exec('grep', { pattern: 'TODO' }, promoted)), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('grep', { pattern: 'TODO', path: 'project2_task' }, promoted)), undefined)
+assert.equal(guardDecision(exec('pwsh', { command: 'Get-Content $env:DSH_SESSION_JSONL' }, promoted)), INTERNAL_CONTEXT_BLOCKED)
+assert.equal(guardDecision(exec('pwsh', { command: "Set-Content app.js 'large payload'" }, promoted)), SHELL_CONTENT_WRITE_BLOCKED)
+
+// Vertical-slice limits are enforced on complete tool arguments and across a step/check cycle.
+const oversized = [
+  ...promoted,
+  assistant([{ name: 'write', args: { file_path: 'app.js', content: 'x'.repeat(12_001) } }], 2, 20),
+]
+assert.equal(guardDecision(exec('write', { file_path: 'app.js', content: 'x'.repeat(12_001) }, oversized)), MUTATION_TOO_LARGE)
+
+const threeWrites = [
+  ...promoted,
+  assistant([
+    { name: 'write', args: { file_path: 'a.js', content: 'a' } },
+    { name: 'write', args: { file_path: 'b.js', content: 'b' } },
+    { name: 'write', args: { file_path: 'c.js', content: 'c' } },
+  ], 2, 20),
+]
+assert.equal(guardDecision(exec('write', { file_path: 'c.js', content: 'c' }, threeWrites, 'c3')), SLICE_BUDGET)
+
+const unverified = [
+  ...promoted,
+  call('w1', 'write', { file_path: 'a.js', content: 'a'.repeat(8_000) }, 20),
+  result('w1', 'Created file', 21),
+  assistant([{ name: 'write', args: { file_path: 'b.js', content: 'b'.repeat(3_000) } }], 3, 22),
+]
+assert.equal(guardDecision(
+  exec('write', { file_path: 'b.js', content: 'b'.repeat(3_000) }, unverified),
+  { maxUnverifiedMutationChars: 10_000 },
+), SLICE_BUDGET)
+
+const checked = [
+  ...unverified.slice(0, -1),
+  call('check-1', 'pwsh', { command: 'node --check a.js' }, 22),
+  result('check-1', '[exit code: 0]', 23),
+  assistant([{ name: 'write', args: { file_path: 'b.js', content: 'b'.repeat(3_000) } }], 4, 24),
+]
+assert.equal(guardDecision(
+  exec('write', { file_path: 'b.js', content: 'b'.repeat(3_000) }, checked),
+  { maxUnverifiedMutationChars: 10_000 },
+), undefined)
+
+// A passed final check gets a total audit budget across different tools and commands.
+const afterPass = [
+  ...promoted,
+  call('w2', 'write', { file_path: 'app.js', content: 'ok' }, 20), result('w2', 'Created file', 21),
+  call('check-2', 'pwsh', { command: 'node --check app.js' }, 22), result('check-2', '[exit code: 0]', 23),
+  assistant([
+    { name: 'read', args: { file_path: 'app.js' } },
+    { name: 'grep', args: { pattern: 'ok', path: 'app.js' } },
+    { name: 'pwsh', args: { command: 'Get-Location' } },
+  ], 5, 24),
+]
+assert.equal(guardDecision(exec('read', { file_path: 'app.js' }, afterPass, 'c1')), undefined)
+assert.equal(guardDecision(exec('grep', { pattern: 'ok', path: 'app.js' }, afterPass, 'c2')), undefined)
+assert.equal(guardDecision(exec('pwsh', { command: 'Get-Location' }, afterPass, 'c3')), STOP_AFTER_CHECK)
+
+const reopenedByFailure = [
+  ...afterPass.slice(0, -1),
+  call('check-3', 'pwsh', { command: 'npm test' }, 24), result('check-3', 'FAILED one test\n[exit code: 1]', 25),
+  assistant([{ name: 'read', args: { file_path: 'app.js' } }], 6, 26),
+]
+assert.equal(guardDecision(exec('read', { file_path: 'app.js' }, reopenedByFailure)), undefined)
+
+const reopenedByFix = [
+  ...afterPass.slice(0, -1),
+  call('edit-1', 'edit', { file_path: 'app.js', old_string: 'ok', new_string: 'fixed' }, 24),
+  result('edit-1', 'updated successfully', 25),
+  assistant([{ name: 'read', args: { file_path: 'app.js' } }], 6, 26),
+]
+assert.equal(guardDecision(exec('read', { file_path: 'app.js' }, reopenedByFix)), undefined)
 
 const command = 'python tests\\run_public_tests.py project2_task'
 const repeated = [
   ...promoted,
-  call('s1', 'pwsh', { command }, 20), result('s1', 'ok', 21),
-  call('s2', 'pwsh', { command }, 22), result('s2', 'ok', 23),
+  call('s1', 'pwsh', { command }, 20), result('s1', '[exit code: 0]', 21),
+  call('s2', 'pwsh', { command }, 22), result('s2', '[exit code: 0]', 23),
 ]
 assert.equal(guardDecision(exec('pwsh', { command }, repeated)), REPEAT_BLOCKED)
-assert.equal(guardDecision(exec('pwsh', { command }, [...repeated, call('edit-1', 'edit', { file_path: 'x' }, 24)])), undefined)
+assert.equal(guardDecision(exec('pwsh', { command }, repeated), { maxPostCheckCalls: 99 }), REPEAT_BLOCKED)
+
+// Request shaping occurs before generation and is stable; explicit audit values remain configurable.
+assert.deepEqual(
+  shapeRequest({ provider: 'deepseek-official', model: 'deepseek-v4-pro', maxTokens: 256_000, reasoningEffort: 'max' }, { requestMaxTokens: 16_384, reasoningEffort: 'high' }),
+  { provider: 'deepseek-official', model: 'deepseek-v4-pro', maxTokens: 16_384, reasoningEffort: 'max' },
+)
+assert.equal(shapeRequest({ maxTokens: 4_096 }, { requestMaxTokens: 16_384 }).maxTokens, 4_096)
+assert.deepEqual(shapeRequest({ maxTokens: 256_000, reasoningEffort: 'max' }, { requestMaxTokens: 32_768 }), { maxTokens: 32_768, reasoningEffort: 'max' })
+
+// HMR/dispose removes both waterfalls and the guard.
+const registered = []
+const disposed = []
+const ctx = {
+  on(event, listener) {
+    registered.push({ event, listener })
+    return () => disposed.push(event)
+  },
+  tools: {
+    guard(listener) {
+      registered.push({ event: 'tools.guard', listener })
+      return () => disposed.push('tools.guard')
+    },
+  },
+}
+const dispose = apply(ctx, { requestMaxTokens: 16_384 })
+assert.deepEqual(registered.map(entry => entry.event), ['system-prompt/assemble', 'agent/request', 'tools.guard'])
+const requestHook = registered.find(entry => entry.event === 'agent/request').listener
+assert.deepEqual(
+  await requestHook({ agent: { session: { events: [] } } }, async () => ({ maxTokens: 256_000, reasoningEffort: 'max' })),
+  { maxTokens: 16_384, reasoningEffort: 'max' },
+)
+dispose()
+assert.deepEqual(disposed, ['tools.guard', 'agent/request', 'system-prompt/assemble'])
 
 console.log('production progressive guard tests passed')

@@ -12,6 +12,20 @@
 
 按照预先设定的省 Token 门槛，完整 Project2 长测没有运行。新增实验总计 10 个 agent 模型请求，估算费用 0.01745607 USD；没有为了得到更好看的样本而重跑。
 
+## bash-debug 后续工程修订（不计入模型评测）
+
+真实长任务轨迹随后证明旧生产 Guard 还有四个逻辑缺口，并暴露一个 PowerShell 契约边界。修订没有调用 DeepSeek 官方 API，因此不改变下方评分表：
+
+| 轨迹问题 | bash-debug 修改 | 本地验证结果 |
+|---|---|---|
+| 空项目浅层列表被拒绝，读取压缩 `DSH_SESSION_JSONL` 却因 `Get-Content` 形式误晋级 | 允许最多 50 项的浅层 probe；晋级要求合格语义与真实成功结果，拒绝 Harness 内部、压缩/二进制、非零 exit 和异常文本 | 空 workspace 的真实 pwsh probe 成功晋级 |
+| 49,838 Token 单步在 Guard 执行前已经生成 | 固定纵向切片 system；请求上限 16,384；`write/edit` 模型可见 12,000 字符上限并由 Guard 重验 | 12,001 字符 `write` 被拒绝 |
+| 晋级后一次生成约 71 KB、1,792 行单文件 | 每次 mutation 12,000；两次成功检查间累计 24,000；每 step 最多两个 mutation；shell 内容写入改走语义工具 | 单次、同 step、跨 step 未检查预算单元测试通过 |
+| 完整测试后换命令、换工具继续 16 step | 成功检查后只有两个额外诊断预算，第三个异构调用也拒绝；失败检查或成功修复重开窗口 | `read → grep → pwsh` 的第三调用返回 `PROGRESSIVE_STOP_AFTER_CHECK` |
+| bootstrap pwsh schema 约 4.4 KB，描述诱导读取 `DSH_*`；native non-zero result 的 `isError` 仍为 false | bootstrap 投影为短、前台-only schema；统一解析 exit/timeout/sandbox/FAIL/异常；Linux 使用同一状态机和对应 bash 浅层 probe | Windows smoke 的 pwsh function schema 从 4,445 降至 1,038 bytes（-76.6%）；共 6 requests、2 headers、1 schema transition。Linux 契约测试通过，Docker daemon 未运行 |
+
+DSH 的 session model-selection 是 reasoning effort 的权威所有者，会覆盖 preset 内层监听器的 effort 建议；smoke 已实证这一点。生产方案因此只可靠强制 `maxTokens <= 16384`，并要求日常会话在 Harness 中选择 `high`。`max` 只能由用户显式选择用于审计，报告不再声称插件能暗中替换该值。
+
 ## 环境与冻结输入
 
 - 平台：Windows native

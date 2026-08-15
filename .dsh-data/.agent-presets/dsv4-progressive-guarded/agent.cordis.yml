@@ -24,7 +24,7 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    text: "You are a helpful software engineer assistant."
+    text: "You are a helpful software engineer assistant. Build the smallest runnable vertical slice first. Keep each file mutation at most 12000 characters, run one relevant check, then expand only as required. After the final check passes, stop; do not continue speculative audits."
     complete: true
     includeRuntimeContext: false
 - id: agent-instructions
@@ -49,9 +49,17 @@
     bootstrapTools: [read]
     coreTools: [read, edit, write, grep, glob]
     maxFirstStepCalls: 2
+    bootstrapMaxEntries: 50
     blockBroadInventory: true
+    blockInternalContext: true
     blockBootstrapWrites: true
+    blockShellContentWrites: true
+    maxMutationChars: 12000
+    maxUnverifiedMutationChars: 24000
+    maxMutationsPerStep: 2
+    maxPostCheckCalls: 2
     repeatLimit: 2
+    requestMaxTokens: 16384
 
 - id: tool-bash
   name: '@deepseek-ai/dsh-tool-bash'
