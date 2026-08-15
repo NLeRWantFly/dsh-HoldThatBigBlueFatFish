@@ -33,6 +33,8 @@
 
 机器可读总表见 [all-results.csv](all-results.csv) 和 [all-results.json](all-results.json)。前者适合表格分析，后者保留来源 run、失败尝试和总计。
 
+项目讨论过程见 [conversation-archive.md](conversation-archive.md)。该归档保留可见用户/助手消息，排除内部 reasoning、工具输出、自动浏览器上下文和含真实 API Key 的对话片段，并对本机路径脱敏。
+
 ## 全部结果总表
 
 `R chars/tok` 为第一条 assistant message 的 reasoning 字符数/本次 run 的 reasoning tokens；`I/C/O` 为 input/cache-read/output tokens；`Breadth` 越低越收敛。

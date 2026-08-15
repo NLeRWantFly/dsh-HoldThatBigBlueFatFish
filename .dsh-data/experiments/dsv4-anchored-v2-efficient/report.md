@@ -1,5 +1,9 @@
 # DeepSeek V4 Pro Max 省 Token 约束实验报告
 
+## 对话归档
+
+完整工程对话已整理为 [conversation-archive.md](conversation-archive.md)：共 30 个已完成或中断轮次、438 条可见用户/助手消息。归档不包含内部 reasoning、工具输出和自动浏览器上下文；含真实 API Key 的 1 个对话片段已整段排除，本机路径也已脱敏。
+
 ## 结论
 
 本轮改进能稳定约束**首步工具面或实际执行风险**，但没有减少模型的**首步 reasoning**。显式契约会诱发规则复述；完全隐藏执行/编辑能力又会诱发“当前工具是否足以完成任务”的能力焦虑。首步 reasoning 从 Standard 的 81 字符，依次变为 V2 Compact 248、V3 Single 370、V4 Read-Only 1778；给 V4 增加一句能力生命周期事实后，V5 降至 442；预取 onboarding 并恢复核心工具的 V6 降至 328，但广度又回到 2。因此结论是：

@@ -85,6 +85,7 @@ npm.cmd test
 - [全部结果 CSV](.dsh-data/experiments/dsv4-anchored-v2-efficient/all-results.csv)
 - [全部结果 JSON](.dsh-data/experiments/dsv4-anchored-v2-efficient/all-results.json)
 - [完整首轮原文与消融报告](.dsh-data/experiments/dsv4-anchored-v2-efficient/report.md)
+- [项目对话归档（已排除 API Key 对话）](.dsh-data/experiments/dsv4-anchored-v2-efficient/conversation-archive.md)
 
 ## 生产预设
 
