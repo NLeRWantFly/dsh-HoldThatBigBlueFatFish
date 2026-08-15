@@ -1,6 +1,6 @@
 # dsh-HoldThatBigBlueFatFish
 
-> 让 DeepSeek Harness 的蓝色大肥鱼先拿一条证据，再动整片池塘。
+> 让 DeepSeek Harness 的蓝色大肥鱼一次只咬下一口，验证够了就停。
 
 `#dsh-plugin` · DeepSeek Harness community preset · MIT
 
@@ -45,7 +45,7 @@ npm.cmd test
 
 ## 总结
 
-> 工具 schema 与运行时 guard 对实际动作的影响大于 prompt；它们能约束仓库盘点风险，但当前实验没有证明能同步缩短模型内部 reasoning。
+> 短探针里，工具 schema 与运行时 Guard 对“实际做什么”的影响大于 prompt；长任务里，V4 Pro 对 system 长度和 schema 边界变化都很敏感。最终方案不是给 Pro 叠加更多规则，而是极短固定 system、首请求起固定核心工具、把粒度与停止控制放进运行时。
 
 - Persona/context：Standard 换成 46 字符 Minimal 后，首步 reasoning 从 81 增至 166，动作广度仍为 2。
 - 首轮 schema：Minimal Fixed/Anchored 在短探针把广度降至 1，但 reasoning 增至 294/227；通用 shell 仍能绕回递归盘点。
@@ -53,6 +53,8 @@ npm.cmd test
 - 能力过窄：只开放 `read` 导致 1778 字符的能力焦虑；告知后续会开放工具后降至 442。
 - 上下文预取：V6 reasoning 降至 328，但工具调用增至 3、广度回到 2。
 - 长任务：Minimal 两组 Ability 为 91.0，对比 Standard 90.5；但 Ship 从 90.5 降到 72，未证明总体质量提升。
+- 灰度/正式轨迹：灰度版更接近模块化产品循环；正式 DSH 版在第一次检查通过后仍继续 16 个 assistant step 和 18 次调用，说明路由或首步收窄不能独自控制整轮进度。
+- Pro/Flash 分流：Flash 继续适合弱 persona + 渐进披露；Pro 改用显式、固定的生产 preset，避免中途披露工具触发注意力稀释、空转和额外 cache boundary。
 
 完成数据均来自 Windows native；Linux Docker 没有形成完整可评分 run，因此不作跨 OS 结论。
 
@@ -62,15 +64,15 @@ npm.cmd test
 
 | 控制点 | 旧版 | bash-debug |
 |---|---|---|
-| 空项目 | 根目录浅层查看也拒绝 | 允许 Windows/Linux 最多 50 项的浅层探针 |
-| 晋级证据 | 命令形式匹配，`Get-Content` 成功即可 | 语义调用 + 成功结果；非零 exit、异常、Harness 内部或压缩数据均无效 |
-| 生成前控制 | 无 | 稳定纵向切片 system、`maxTokens <= 16384`、模型可见 `maxLength: 12000` |
-| 实现粒度 | 晋级后可一次写入任意大文件 | 单次 12,000 字符、未检查累计 24,000、每 step 最多两个变更 |
+| 空项目 | 根目录浅层查看也拒绝，可能读取 Harness 内部并误晋级 | Pro 首请求就有固定核心工具；另允许 Windows/Linux 最多 50 项的浅层探针，并拒绝内部/压缩数据 |
+| 模型策略 | Pro/Flash 共用同一种渐进式入口 | Pro 显式固定策略；Flash 留给 Router 的弱 persona + 渐进披露，避免首请求生命周期误判 |
+| 生成前控制 | 无 | 245 字符 complete system、`maxTokens <= 16384`、模型可见 `maxLength: 12000` |
+| 实现粒度 | 工具晋级后可一次写入任意大文件 | 单次 12,000 字符、未检查累计 24,000、每 step 最多两个变更 |
 | 收敛 | 只拦完全相同命令的第三次重复 | 相关检查通过后总共只给两个额外诊断，换工具/换命令也不能绕过 |
-| bootstrap shell | 完整 pwsh function schema 4,445 bytes，并提示 `DSH_*` | 首请求投影为 1,038 bytes（-76.6%）；隐藏后台/提权/Harness 内部引导 |
-| 缓存边界 | 两阶段 | 仍是两个固定 schema、一次晋级；system 全程稳定 |
+| Windows shell | 模型直接面对 PowerShell 生态与 Harness 特有字段 | Linux 风格 `bash` facade 代理到受 ACL 约束的原生 `pwsh`；不启动 Git Bash、不提权 |
+| 缓存边界 | Pro 两阶段、一次 schema 晋级 | Pro 的 system/tool 前缀全程固定，真实 Cordis smoke 中 schema transition 为 0 |
 
-真实 DSH smoke 共 6 个 agent request、2 个 request header、1 次 schema transition；空目录晋级、超长变更拒绝和跨工具 stop 均通过。Docker daemon 当时未运行，因此 Linux 只完成同代码路径的契约测试，仍不声称真实跨 OS 等价。
+真实 DSH fake-API smoke 共 6 个 agent request、1 个 request header、1 个 system hash、1 个 tool schema hash、0 次 schema transition；12,001 字符变更与检查后的第三个异构审计均被拒绝。这个结果证明插件不额外切断缓存前缀，但不等同于官方 API 的实际 cache-hit rate。Docker daemon 当时未运行，因此 Linux 只完成同代码路径的契约测试，仍不声称真实跨 OS 等价。
 
 ## 全部评分数据
 
@@ -105,7 +107,9 @@ npm.cmd test
 
 ## 生产预设
 
-`dsv4-progressive-guarded` 使用固定的短纵向切片 persona。未取得证据时只暴露 `read + 投影后的 native shell`；成功的文本读取、有上限浅层探针或明确检查后，下一请求恢复 `read/shell/edit/write/grep/glob`。所有阶段继续拦截递归盘点、全量 glob、无路径 grep和后台 shell，并增加文件变更预算与测试后收敛预算。
+`dsv4-progressive-guarded` 现在是显式的 V4 Pro 策略。它使用 245 字符的 complete persona，关闭 runtime context，并从首请求起固定暴露 `read/bash/grep/glob/edit/write`；整轮不再发生工具晋级。所有阶段继续拦截递归盘点、全量 glob、无路径 grep、shell 内容写入和后台首步，并增加文件变更预算与测试后收敛预算。
+
+Flash 不复用这个 Pro preset：它继续使用 `dsh-router-standard` 的弱 persona 和 `read/bash → 有效证据 → 核心工具`。真实 Cordis 测试发现，`session.selectModel` 在首轮 system/tool 组装之后才最终施加路由，依靠插件自动猜测模型会让首请求误入错误策略，因此两类模型必须使用显式 preset，并在新 session 中选择。
 
 日常任务请在 Harness 模型选择中使用 `deepseek-v4-pro / high`。DSH 的 session model-selection 层权威拥有 reasoning effort，插件不会伪装覆盖 UI 中显式选择的 `max`；它会可靠地把普通请求 `maxTokens` 压到不高于 16,384。`max` 留给复制出的显式审计 preset。
 
@@ -123,9 +127,10 @@ Plan Mode 会按持久化 `plan/mode` 事件绕过本插件，让 Harness 原生
 <DSH_HOME>/.agent-presets/dsv4-progressive-guarded
 ```
 
-四个安装文件已逐字节哈希一致。单元测试和真实 DSH 假 API 冒烟测试均通过：首请求只有投影后的 `pwsh + read`，空目录浅层证据后恢复 6 个核心工具，12,001 字符写入与检查后第三个异构审计调用均被拒绝。验证产物：
+六个安装文件已逐字节哈希一致。单元测试和真实 DSH 假 API 冒烟测试均通过：Windows 模型看到固定的 6 工具 schema，其中 `bash` 通过现有 ACL sandbox 代理到 `pwsh`；连续 6 个请求只有 1 个 request header 和 0 次 schema transition，12,001 字符写入与检查后第三个异构审计调用均被拒绝。没有为这次工程校验新增官方模型调用或消耗用户 Token。验证产物：
 
 - [插件源码](.dsh-data/experiments/dsv4-anchored-v2-efficient/production/progressive-guard.mjs)
+- [Windows portable bash](.dsh-data/experiments/dsv4-anchored-v2-efficient/production/portable-bash.mjs)
 - [安装说明](.dsh-data/experiments/dsv4-anchored-v2-efficient/production/README.md)
 - [结构校验](.dsh-data/experiments/dsv4-anchored-v2-efficient/production/verification.json)
 - [端到端冒烟结果](.dsh-data/experiments/dsv4-anchored-v2-efficient/production/smoke-result.json)
