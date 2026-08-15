@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { FLASH_PERSONA, PRO_PERSONA } from './model-policy.mjs'
 import {
   BOOTSTRAP_WRITE_BLOCKED,
   FIRST_STEP_BUDGET,
@@ -16,6 +17,7 @@ import {
   guardDecision,
   hasQualifiedEvidence,
   isPlanMode,
+  shapeAssembly,
   shapeRequest,
   successfulResult,
 } from './progressive-guard.mjs'
@@ -119,6 +121,26 @@ assert.equal(isPlanMode(planEvents), true)
 assert.equal(filterCatalog(catalog, planEvents), catalog)
 assert.equal(guardDecision(exec('glob', { pattern: '**/*' }, planEvents)), undefined)
 assert.equal(isPlanMode([...planEvents, { type: 'plan/mode', data: { active: false } }]), false)
+
+const assembly = {
+  ...catalog,
+  sections: [
+    { name: 'persona', text: 'fallback', order: 0 },
+    { name: 'plan-mode', text: 'native plan boundary', order: 10 },
+  ],
+  contexts: [],
+  variables: {},
+}
+const proAssembly = shapeAssembly(assembly, [], 'deepseek-v4-pro')
+assert.equal(proAssembly.sections[0].text, PRO_PERSONA)
+assert.deepEqual(proAssembly.tools.map(tool => tool.name), ['read', 'pwsh'])
+const flashAssembly = shapeAssembly(assembly, [], 'deepseek-v4-flash')
+assert.equal(flashAssembly.sections[0].text, FLASH_PERSONA)
+assert.deepEqual(flashAssembly.tools, proAssembly.tools)
+const planAssembly = shapeAssembly(assembly, planEvents, 'deepseek-v4-flash')
+assert.equal(planAssembly.sections[0].text, FLASH_PERSONA)
+assert.equal(planAssembly.sections.some(section => section.name === 'plan-mode'), true)
+assert.equal(planAssembly.tools.length, catalog.tools.length)
 
 // Promotion requires valid project evidence, not merely a matching command spelling.
 const read = call('read-1', 'read', { file_path: 'ONBOARDING_TODO.md' })
@@ -295,6 +317,13 @@ const ctx = {
 const dispose = apply(ctx, { requestMaxTokens: 16_384 })
 assert.deepEqual(registered.map(entry => entry.event), ['system-prompt/assemble', 'agent/request', 'tools.guard'])
 const requestHook = registered.find(entry => entry.event === 'agent/request').listener
+const systemHook = registered.find(entry => entry.event === 'system-prompt/assemble').listener
+const hookedAssembly = await systemHook(
+  {},
+  { agent: { options: { model: 'deepseek-v4-flash' }, session: { events: [] } } },
+  async () => assembly,
+)
+assert.equal(hookedAssembly.sections[0].text, FLASH_PERSONA)
 assert.deepEqual(
   await requestHook({ agent: { session: { events: [] } } }, async () => ({ maxTokens: 256_000, reasoningEffort: 'max' })),
   { maxTokens: 16_384, reasoningEffort: 'max' },

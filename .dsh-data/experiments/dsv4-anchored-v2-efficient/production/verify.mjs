@@ -8,7 +8,7 @@ import { PERSONA } from './progressive-guard.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const preset = resolve(here, '..', '..', '..', '.agent-presets', 'dsv4-progressive-guarded')
-const files = ['agent.cordis.yml', 'preset.yml', 'progressive-guard.mjs', 'README.md']
+const files = ['agent.cordis.yml', 'preset.yml', 'progressive-guard.mjs', 'model-policy.mjs', 'README.md']
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex')
@@ -31,6 +31,7 @@ for (const expected of [
   'requestMaxTokens: 16384',
 ]) assert(composition.includes(expected))
 assert.deepEqual(contents['progressive-guard.mjs'], await readFile(join(here, 'progressive-guard.mjs')))
+assert.deepEqual(contents['model-policy.mjs'], await readFile(join(here, 'model-policy.mjs')))
 assert.deepEqual(contents['README.md'], await readFile(join(here, 'README.md')))
 for (const [file, content] of Object.entries(contents)) {
   assert.doesNotMatch(content.toString('utf8'), /\bsk-[A-Za-z0-9_-]{20,}\b/, `${file} contains a credential-like value`)
@@ -42,6 +43,7 @@ const result = {
   files: Object.fromEntries(files.map(file => [file, { bytes: contents[file].length, sha256: sha256(contents[file]) }])),
   invariants: {
     stableVerticalSlicePersona: true,
+    modelSpecificPersona: true,
     runtimeContextDisabled: true,
     singlePluginRegistration: true,
     boundedRequestGeneration: true,

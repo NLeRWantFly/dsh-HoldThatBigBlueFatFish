@@ -1,7 +1,9 @@
+import { PRO_PERSONA, applyModelPersona } from './model-policy.mjs'
+
 export const name = 'dsv4-progressive-guard'
 export const inject = ['systemPrompt', 'tools']
 
-export const PERSONA = 'You are a helpful software engineer assistant. Build the smallest runnable vertical slice first. Keep each file mutation at most 12000 characters, run one relevant check, then expand only as required. After the final check passes, stop; do not continue speculative audits.'
+export const PERSONA = PRO_PERSONA
 
 export const FIRST_STEP_BUDGET = 'PROGRESSIVE_FIRST_STEP_BUDGET: use at most two bounded calls in the first step.'
 export const INVENTORY_BLOCKED = 'PROGRESSIVE_INVENTORY_BLOCKED: inspect at most 50 immediate entries or use one known path.'
@@ -288,6 +290,14 @@ export function filterCatalog(assembled, events, config = {}) {
   }
 }
 
+export function shapeAssembly(assembled, events, modelId, config = {}) {
+  const withPersona = {
+    ...assembled,
+    sections: applyModelPersona(assembled.sections, modelId),
+  }
+  return Array.isArray(events) ? filterCatalog(withPersona, events, config) : withPersona
+}
+
 function assistantCallContext(events, callId) {
   for (let index = events.length - 1; index >= 0; index--) {
     const event = events[index]
@@ -461,7 +471,7 @@ export function apply(ctx, config = {}) {
     disposers.push(ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
       const assembled = await next()
       const events = context.agent?.session?.events
-      return Array.isArray(events) ? filterCatalog(assembled, events, config) : assembled
+      return shapeAssembly(assembled, events, context.agent?.options?.model, config)
     }))
     disposers.push(ctx.on('agent/request', async ({ agent }, next) => {
       const request = await next()
