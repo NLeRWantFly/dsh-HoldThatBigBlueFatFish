@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { cp, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import { homedir } from 'node:os'
-import { delimiter, dirname, join, relative, resolve } from 'node:path'
+import { basename, delimiter, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -21,6 +22,8 @@ const progressiveSource = resolve(process.env.PROGRESSIVE_SOURCE
   ?? join(here, '..', 'dsv4-anchored-v2-efficient', 'production'))
 const anchoredSource = resolve(process.env.ANCHORED_96_SOURCE
   ?? join(here, '..', 'dsv4-pro-anchored-96'))
+const contractAnchorSource = resolve(process.env.CONTRACT_ANCHOR_SOURCE
+  ?? join(here, '..', 'dsv4-pro-contract-anchor'))
 const espIdfActivationScript = process.env.DSH_EVAL_ESP_IDF_ACTIVATION_SCRIPT === undefined
   ? undefined
   : resolve(process.env.DSH_EVAL_ESP_IDF_ACTIVATION_SCRIPT)
@@ -41,6 +44,7 @@ const conditions = Object.freeze([
   { id: 'router-standard', preset: 'dsh-router-standard', harness: 'dsh-router-standard' },
   { id: 'progressive-guarded', preset: 'dsv4-progressive-guarded', harness: 'dsh-progressive-guarded-v0.2' },
   { id: 'pro-anchored-96', preset: 'dsv4-pro-anchored-96', harness: 'dsh-pro-anchored-96' },
+  { id: 'pro-contract-anchor', preset: 'dsv4-pro-contract-anchor', harness: 'dsh-pro-contract-anchor-v0.3' },
 ])
 function positiveIntegerEnv(name, fallback) {
   const value = Number.parseInt(process.env[name] ?? '', 10)
@@ -50,6 +54,7 @@ function positiveIntegerEnv(name, fallback) {
 const requestLimit = positiveIntegerEnv('DSH_EVAL_REQUEST_LIMIT', 320)
 const outputTokenLimit = positiveIntegerEnv('DSH_EVAL_OUTPUT_TOKEN_LIMIT', 384_000)
 const timeoutMs = positiveIntegerEnv('DSH_EVAL_TIMEOUT_MS', 4 * 60 * 60 * 1000)
+const skipEvaluator = process.env.DSH_EVAL_SKIP_EVALUATOR === '1'
 
 function option(name) {
   const index = process.argv.indexOf(name)
@@ -217,6 +222,14 @@ function cacheSummary(usage) {
 async function evaluate({ condition, control, candidateProject, runDir, score, index }) {
   const before = new Set(await resultDirectories(control))
   const conditionDir = join(runDir, 'conditions', condition.id)
+  // Keep this path short on Windows: ESP-IDF/Ninja still encounters MAX_PATH
+  // edges in deeply nested per-run result directories.
+  const evaluatorKey = createHash('sha256')
+    .update(`${basename(runDir)}\0${condition.id}`)
+    .digest('hex')
+    .slice(0, 12)
+  const evaluatorBuildRoot = join(comparisonWorkspace, '.espidf-eval', evaluatorKey)
+  await mkdir(evaluatorBuildRoot, { recursive: true })
   const metaExtra = join(conditionDir, 'meta-extra.json')
   await writeJson(metaExtra, {
     condition: condition.id,
@@ -240,7 +253,11 @@ async function evaluate({ condition, control, candidateProject, runDir, score, i
     '--provider', route.provider,
     '--endpoint-product', endpointProduct,
     '--meta-extra', metaExtra,
-  ], { cwd: control, allowFailure: true })
+  ], {
+    cwd: control,
+    allowFailure: true,
+    env: { ...process.env, ESP_IDF_BUILD_ROOT: evaluatorBuildRoot },
+  })
   await writeFile(join(conditionDir, 'evaluator.stdout.log'), result.stdout, 'utf8')
   await writeFile(join(conditionDir, 'evaluator.stderr.log'), result.stderr, 'utf8')
   const created = (await resultDirectories(control)).filter(name => !before.has(name))
@@ -384,7 +401,7 @@ async function buildRuntime({ port, runDir }) {
 
 async function live() {
   if (!(await credentialDocumentExists())) throw new Error('The configured DSH credential document is absent')
-  for (const path of [sourceRoot, modeltestSource, routerSource, progressiveSource, anchoredSource, python, espIdfActivationScript].filter(Boolean)) {
+  for (const path of [sourceRoot, modeltestSource, routerSource, progressiveSource, anchoredSource, contractAnchorSource, python, espIdfActivationScript].filter(Boolean)) {
     if (!(await exists(path))) throw new Error(`required path missing: ${path}`)
   }
   const requestedCondition = option('--condition')
@@ -425,11 +442,13 @@ async function live() {
     endpointProduct,
     platform: 'windows-native',
     tokenBudget: { requestLimitPerCondition: requestLimit, outputTokenLimitPerCondition: outputTokenLimit },
+    skipEvaluator,
     credentials: { source: 'DSH credential service', valueInspected: false, persisted: false },
     espIdf: espIdfActivationScript === undefined ? null : {
       backend: 'docker-activation',
       activationScript: relative(comparisonWorkspace, espIdfActivationScript).replaceAll('\\', '/'),
       image: process.env.DSV4_ESP_IDF_DOCKER_IMAGE ?? 'espressif/idf:v6.0.1',
+      evaluatorBuildIsolation: 'short-per-condition-run-directory',
     },
     commits: {
       modeltest: modeltestCommit,
@@ -443,6 +462,7 @@ async function live() {
       routerCore: await lib.sha256File(join(routerSource, 'preset', 'router-core.mjs')),
       progressiveGuard: await lib.sha256File(join(progressiveSource, 'progressive-guard.mjs')),
       anchored96: await lib.sha256File(join(anchoredSource, 'anchored-tools.mjs')),
+      contractAnchor: await lib.sha256File(join(contractAnchorSource, 'contract-anchor.mjs')),
     },
     samples: [],
     failures: [],
@@ -505,14 +525,24 @@ async function live() {
         score.reasoningEffortSeen = [...new Set(headers.map(event => event.data?.header?.config?.reasoningEffort ?? null))]
         scores.push(score)
         await writeJson(join(runDir, 'scores.json'), scores)
-        const evaluated = await evaluate({
-          condition,
-          control,
-          candidateProject: join(workspace, 'project2_task'),
-          runDir,
-          score,
-          index,
-        })
+        const evaluated = skipEvaluator
+          ? {
+              id: condition.id,
+              evaluatorSkipped: true,
+              censored: true,
+              ability: null,
+              ship: null,
+              releaseClass: null,
+              blockers: [],
+            }
+          : await evaluate({
+              condition,
+              control,
+              candidateProject: join(workspace, 'project2_task'),
+              runDir,
+              score,
+              index,
+            })
         evaluations.push(evaluated)
         manifest.samples.push(record)
         if (!record.completed) {
@@ -520,7 +550,11 @@ async function live() {
         }
         await writeJson(join(runDir, 'evaluations.json'), evaluations)
         await writeJson(join(runDir, 'manifest.json'), manifest)
-        process.stdout.write(`[done] ${condition.id} Ability=${evaluated.ability} Ship=${evaluated.ship} Release=${evaluated.releaseClass}\n`)
+        if (skipEvaluator) {
+          process.stdout.write(`[probe] ${condition.id} evaluator skipped after ${score.requestCount} requests\n`)
+        } else {
+          process.stdout.write(`[done] ${condition.id} Ability=${evaluated.ability} Ship=${evaluated.ship} Release=${evaluated.releaseClass}\n`)
+        }
         if (record.terminalReason?.error?.code === 'QUOTA') break
       } catch (error) {
         manifest.failures.push({ id: condition.id, at: new Date().toISOString(), error: String(error?.message ?? error) })
@@ -633,5 +667,5 @@ if (mode === 'live') {
   if (!runDir) throw new Error('usage: runner.mjs replay RUN_DIR')
   await replay(runDir)
 } else {
-  throw new Error('usage: runner.mjs live [--condition router-standard|progressive-guarded] | replay RUN_DIR')
+  throw new Error('usage: runner.mjs live [--condition router-standard|progressive-guarded|pro-anchored-96|pro-contract-anchor] | replay RUN_DIR')
 }
