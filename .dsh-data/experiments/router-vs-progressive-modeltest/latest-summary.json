@@ -1,5 +1,6 @@
 {
-  "runId": "run-win-2026-08-16_04-54-08-394",
+  "runId": "run-win-2026-08-16_13-28-24-373",
+  "releaseVersion": "v0.3.0",
   "route": {
     "provider": "opencode-go",
     "model": "deepseek-v4-pro",
@@ -10,30 +11,35 @@
   "qualityComparable": true,
   "rows": [
     {
-      "condition": "pro-anchored-96",
+      "condition": "pro-contract-anchor",
       "completed": true,
       "scoreStatus": "complete",
-      "ability": 97,
-      "ship": 97,
-      "releaseClass": "B+",
-      "blockers": [
-        "E-contract"
-      ],
-      "requests": 148,
-      "toolCalls": 231,
+      "ability": 99,
+      "ship": 99,
+      "releaseClass": "A",
+      "blockers": [],
+      "scoreSource": "official-recheck-short-root",
+      "evaluationCorrection": {
+        "candidateChanged": false,
+        "modelRequestsAdded": 0,
+        "originalInvalidScore": "93/72/B",
+        "cause": "Windows evaluator build-root path caused WinError 3 before the real ESP-IDF build"
+      },
+      "requests": 237,
+      "toolCalls": 270,
       "reasoningTokens": null,
-      "outputTokens": 126369,
-      "inputTokens": 33241626,
-      "cacheHitRate": 0.993384,
-      "estimatedCostUsd": 0.32531423,
+      "outputTokens": 126279,
+      "inputTokens": 56326895,
+      "cacheHitRate": 0.995305,
+      "estimatedCostUsd": 0.42811665,
       "firstSystemChars": 46,
       "firstToolNames": [
         "pwsh",
         "read"
       ],
-      "firstReasoningChars": 129,
-      "firstToolCalls": 4,
-      "firstBreadth": 3,
+      "firstReasoningChars": 186,
+      "firstToolCalls": 1,
+      "firstBreadth": 1,
       "schemaStates": 2,
       "maxTokensSeen": [
         null

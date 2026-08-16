@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "source": "modeltest official evaluator",
+  "benchmark": "project2-v4.1b",
+  "registryVersion": "v4.1b",
+  "runId": "run-win-2026-08-16_13-28-24-373",
+  "candidateChangedForRecheck": false,
+  "modelRequestsAddedForRecheck": 0,
+  "score": {
+    "abilityDraft": 99,
+    "shipDraft": 99,
+    "releaseClassHint": "A",
+    "blockers": [],
+    "behaviorBlockers": [],
+    "semanticOnlyCodes": [
+      "V4-F12-04"
+    ],
+    "f9Mode": "real_pass",
+    "familyDraft": {
+      "F1": 8,
+      "F2": 12,
+      "F3": 16,
+      "F4": 4,
+      "F5": 12,
+      "F6": 10,
+      "F7": 8,
+      "F8": 8,
+      "F9": 6,
+      "F10": 8,
+      "F11": 4,
+      "F12": 3
+    },
+    "familyMax": {
+      "F1": 8,
+      "F2": 12,
+      "F3": 16,
+      "F4": 4,
+      "F5": 12,
+      "F6": 10,
+      "F7": 8,
+      "F8": 8,
+      "F9": 6,
+      "F10": 8,
+      "F11": 4,
+      "F12": 4
+    },
+    "dimensions": {
+      "final_code": 10,
+      "security": 9.72,
+      "migration": 10,
+      "esp_deploy": 10,
+      "process_truth": 10,
+      "efficiency": null
+    }
+  },
+  "evaluatorSteps": {
+    "public": 0,
+    "debugProbe": 0,
+    "hidden": 1,
+    "espidfStatic": 0,
+    "espidfBuild": 0,
+    "espidfBuildEvidence": 0
+  },
+  "espIdfArtifact": {
+    "status": "passed",
+    "returnCode": 0,
+    "evidenceComplete": true,
+    "name": "stdpro.bin",
+    "bytes": 984800,
+    "sha256": "56f2d03f59e8b63f0e232d35a948d2edd4738677fc1a530cd537a44b150ee5f8"
+  },
+  "rawEvidenceSha256": {
+    "summary.json": "1e940837b8269c523cafab04b0cd95369c6512987db3659c6253a8e0d6977104",
+    "score_draft.json": "8164ffece2437e1b1d0a0c4041e24e1f50ad11cdd7a5e767aa3787ed0716a0da",
+    "blockers.json": "94e3b5c3a8ff8e4109f9a71662f656f859189e199a0b71ee310e2114e4c0a0ec",
+    "espidf_build_evidence.json": "bb893d6e1d6f9bb40ede4f97c739161059b0a2ea89233a28d45fda226c36fcc8"
+  },
+  "rawEvidenceLocalPath": ".dsh-data/experiments/router-vs-progressive-modeltest/runs/run-win-2026-08-16_13-28-24-373/conditions/pro-contract-anchor/official-recheck-short-root"
+}

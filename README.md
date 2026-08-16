@@ -1,13 +1,56 @@
 # dsh-HoldThatBigBlueFatFish
 
+## v0.3：Project2 从 92.5 提升到 99 分
+
+正式版 `v0.3.0` 使用 OpenCode Go 套餐的 `deepseek-v4-pro`、`reasoningEffort: max`，在冻结的 Modeltest Project2 v4.1b 上得到 **Ability 99、Ship 99、Release A**，无 blocker，并完成真实 ESP-IDF 构建。评测使用的 RC5 与正式版 `contract-anchor.mjs` 逐字节一致，因此按原样晋升，不通过评测后改 prompt 来“补分”。
+
+原始 runner 曾把同一候选记为 93/72/B；复核证明原因是 Windows 深层 evaluator build root 触发 `WinError 3`。候选代码未变，也没有追加模型请求或 Token；换用短的隔离构建根后，官方 evaluator 得到 99/99/A。runner 已同步修正，避免把评测基础设施故障误判为模型失败。
+
+| 指标 | v0.3 完整样本 |
+|---|---:|
+| Ability / Ship | **99 / 99** |
+| Release | **A** |
+| Provider requests / tool calls | 237 / 270 |
+| Output tokens | 126,279 |
+| Prefix cache hit rate | **99.5305%** |
+| ESP-IDF | real pass；`stdpro.bin` 984,800 bytes |
+
+### 92.5 → 99 是怎么来的
+
+这里的 92.5 和 99 都是百分制 Project2 分数，不是“成功率”。它们使用相同冻结题面和评分器，但 provider 不同：92.5 基线来自 DeepSeek 官方 API，后续 96–99 来自 OpenCode Go 套餐。因此这是一条有证据的工程版本演进，不是严格的同 provider 随机对照，也不宣称统计显著。
+
+| 阶段 | Provider / effort | Ability / Ship | Release | 关键变化与结论 |
+|---|---|---:|---|---|
+| Router Standard 基线 | DeepSeek 官方 API / max | 92.5 / 92.5 | B+ | 6,273 字符 system；遗留 `M-fidelity`、`E-contract`、`E-build` blocker |
+| v0.2 Minimal Anchored | OpenCode Go / max | 96、97 | B+ | 46 字符 Minimal；首轮 `shell + read`，随后恢复 Standard；Docker 提供真实 ESP-IDF 构建 |
+| v0.3 rc1 | OpenCode Go / max | 98 / 98 | B+ | 在晋级后加入短工程契约，约束安全、迁移、API/协议和发布不变量 |
+| v0.3 rc2 | OpenCode Go / max | 95 / 95 | B+ | 回归样本：依赖失败后擅自替换官方 MQTT，证明“能构建”不能凌驾于集成保真 |
+| v0.3 rc3 | OpenCode Go / max | 97 / 97 | B+ | 明确工具链失败不应替换正式集成，恢复官方 MQTT；仍丢 topic/readiness 与语义项 |
+| v0.3 rc5 → 正式版 | OpenCode Go / max | **99 / 99** | **A** | 保留 exact-name wrapper 和协议字面量；迁移先 backfill 再建索引；先完成必需报告；真实构建通过 |
+
+净提升来自五个可迁移的控制点：
+
+1. 把 6,273 字符的路由/人格入口压成固定 46 字符 Minimal，降低 Pro 的首步注意力稀释。
+2. 首请求仅显示原生 shell 与 `read`，首次持久化 `tool/call` 后才恢复完整 Standard 工具，避免一开始被大工具目录牵引，又不牺牲后续工程能力。
+3. 晋级后只增加 491 字符固定契约，要求保留旧标识符、协议字面量和正式依赖；这直接修复了 rc2 的 MQTT 替换回归。
+4. 把迁移顺序固定为“保留旧数据 → backfill → 建索引”，同时让必需 PR/构建报告先于可选文档，减少完整度失分。
+5. 将 ESP-IDF evaluator 放到短、隔离的构建根。原始 93/72/B 是 Windows `WinError 3` 基础设施误判；同一候选零模型调用重评后为 99/99/A，这一步修正的是测量，不冒充模型提升。
+
+缓存已经不是瓶颈；99 分样本仍用了 237 次请求和 270 次工具调用。Prompt 提高了正确性，却不能独自成为可靠的 stop controller。下一步应单独消融“按源码 hash 记录测试、probe、真实构建和 PR 完成证据”的轻量 stop gate，避免污染本次 99 分变量。
+
+- [完整 99 分报告](.dsh-data/experiments/dsv4-pro-contract-anchor/report.md)
+- [机器可读结果](.dsh-data/experiments/dsv4-pro-contract-anchor/result.json)
+- [v0.3 插件源码、测试与安装器](.dsh-data/experiments/dsv4-pro-contract-anchor/)
+
 > 让 DeepSeek Harness 的蓝色大肥鱼一次只咬下一口，验证够了就停。
 
-`#dsh-plugin` · **v0.2** · DeepSeek Harness community preset · MIT
+`#dsh-plugin` · **v0.3.0** · DeepSeek Harness community preset · MIT
 
-本工作区汇总了 DeepSeek V4 Pro 的上下文、工具披露、缓存和停止行为实验。v0.2 提供两条明确分工的生产预设：
+本工作区汇总了 DeepSeek V4 Pro 的上下文、工具披露、缓存和停止行为实验。v0.3 提供一个新的 Pro 高性能默认项，并保留 v0.2 的基线与防御项：
 
 ```text
-dsv4-pro-anchored-96       Pro 高性能默认项：Minimal → 首次 shell/read → 完整 Standard
+dsv4-pro-contract-anchor   v0.3 Pro 默认项：Minimal → shell/read → Standard + 固定工程契约
+dsv4-pro-anchored-96       v0.2 实验基线：Minimal → 首次 shell/read → 完整 Standard
 dsv4-progressive-guarded   防御项：固定核心工具 + mutation/diagnostic/stop budgets
 ```
 
@@ -50,12 +93,12 @@ v0.2 因此把“高性能默认项”和“强 containment 防御项”拆开�
 
 ## 快速安装
 
-克隆仓库后，将 v0.2 Pro 默认 preset 目录完整复制到你的 DSH 用户 preset 根目录。PowerShell：
+克隆仓库后，将 v0.3 Pro 默认 preset 目录完整复制到你的 DSH 用户 preset 根目录。PowerShell：
 
 ```powershell
 if (-not $env:DSH_HOME) { throw '请先设置 DSH_HOME' }
-$source = '.\.dsh-data\.agent-presets\dsv4-pro-anchored-96'
-$target = Join-Path $env:DSH_HOME '.agent-presets\dsv4-pro-anchored-96'
+$source = '.\.dsh-data\.agent-presets\dsv4-pro-contract-anchor'
+$target = Join-Path $env:DSH_HOME '.agent-presets\dsv4-pro-contract-anchor'
 if (Test-Path -LiteralPath $target) { throw "目标已存在：$target" }
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
 Copy-Item -Recurse -LiteralPath $source -Destination $target
@@ -65,13 +108,13 @@ Linux/macOS：
 
 ```bash
 test -n "$DSH_HOME"
-test ! -e "$DSH_HOME/.agent-presets/dsv4-pro-anchored-96"
+test ! -e "$DSH_HOME/.agent-presets/dsv4-pro-contract-anchor"
 mkdir -p "$DSH_HOME/.agent-presets"
-cp -R .dsh-data/.agent-presets/dsv4-pro-anchored-96 \
-  "$DSH_HOME/.agent-presets/dsv4-pro-anchored-96"
+cp -R .dsh-data/.agent-presets/dsv4-pro-contract-anchor \
+  "$DSH_HOME/.agent-presets/dsv4-pro-contract-anchor"
 ```
 
-完整重启 DeepSeek Harness，新建空白 session，选择 `DeepSeek V4 Pro Anchored v0.2`。不要在已有轨迹的会话中途切换 preset。需要持续硬预算时，改装同仓库的 `dsv4-progressive-guarded`。
+完整重启 DeepSeek Harness，新建空白 session，选择 `DeepSeek V4 Pro Contract Anchor v0.3.0`。不要在已有轨迹的会话中途切换 preset。需要持续硬预算时，改装同仓库的 `dsv4-progressive-guarded`。
 
 验证发布包：
 
@@ -81,7 +124,7 @@ npm.cmd test
 
 ## 总结
 
-> 短探针里，工具 schema 与 Guard 更直接控制“实际做什么”；完整任务里，Pro 的能力上限更依赖极短固定 system、稳定的首次工具锚点和及时恢复完整能力。97 分证明两阶段 schema 可以工作，但后续停止仍需独立控制。
+> 短探针里，工具 schema 与 Guard 更直接控制“实际做什么”；完整任务里，Pro 的能力上限更依赖极短固定 system、稳定的首次工具锚点、及时恢复完整能力，以及少量明确的工程不变量。v0.3 已达到 99 分，但后续停止仍需独立控制。
 
 - Persona/context：Standard 换成 46 字符 Minimal 后，首步 reasoning 从 81 增至 166，动作广度仍为 2。
 - 首轮 schema：Minimal Fixed/Anchored 在短探针把广度降至 1，但 reasoning 增至 294/227；通用 shell 仍能绕回递归盘点。
@@ -92,6 +135,7 @@ npm.cmd test
 - 灰度/正式轨迹：灰度版更接近模块化产品循环；正式 DSH 版在第一次检查通过后仍继续 16 个 assistant step 和 18 次调用，说明路由或首步收窄不能独自控制整轮进度。
 - Pro/Flash 分流：Flash 继续适合弱 persona + 渐进披露；Pro 使用显式选择的 Minimal Anchored preset，只发生一次由持久化事件决定的 schema 恢复。实际缓存命中高于 99.3%，没有出现此前担心的 cache 崩塌。
 - v0.2 完整复验：Minimal Anchored 两个带真实构建样本为 96、97；缓存命中均高于 99.3%，因此当前瓶颈是后续扇出/停止，而不是 prefix cache。
+- v0.3 完整复验：Contract Anchor 达到 99/99/A、零 blocker、真实 ESP-IDF 构建；缓存命中 99.5305%，但 237 次请求仍说明停止控制尚未完成。
 
 完成数据均来自 Windows native；Linux Docker 没有形成完整可评分 run，因此不作跨 OS 结论。
 

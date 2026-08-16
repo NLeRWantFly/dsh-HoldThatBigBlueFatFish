@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "claim": "one-complete-sample-reached-99",
+  "releaseVersion": "v0.3.0",
+  "benchmark": "modeltest-project2-v4.1b",
+  "route": {
+    "provider": "opencode-go",
+    "endpointProduct": "opencode-go-subscription",
+    "model": "deepseek-v4-pro",
+    "reasoningEffort": "max"
+  },
+  "condition": "pro-contract-anchor",
+  "harness": "dsh-pro-contract-anchor-v0.3",
+  "evaluatedHarness": "dsh-pro-contract-anchor-v0.3-rc5",
+  "releasePromotion": "The evaluated RC5 contract-anchor source is byte-identical to the v0.3.0 release source.",
+  "runId": "run-win-2026-08-16_13-28-24-373",
+  "terminalReason": "completed",
+  "score": {
+    "ability": 99,
+    "ship": 99,
+    "releaseClass": "A",
+    "blockers": [],
+    "behaviorBlockers": [],
+    "f9Mode": "real_pass",
+    "family": {
+      "F1": 8,
+      "F2": 12,
+      "F3": 16,
+      "F4": 4,
+      "F5": 12,
+      "F6": 10,
+      "F7": 8,
+      "F8": 8,
+      "F9": 6,
+      "F10": 8,
+      "F11": 4,
+      "F12": 3
+    },
+    "dimensions": {
+      "finalCode": 10,
+      "security": 9.72,
+      "migration": 10,
+      "espDeploy": 10,
+      "processTruth": 10
+    },
+    "onlyMiss": {
+      "item": "V4-F12-04",
+      "kind": "semantic-only",
+      "expectedReason": "not_authorized_for_target",
+      "actualReason": "not_authenticated",
+      "pointsLost": 1
+    }
+  },
+  "usage": {
+    "providerRequests": 237,
+    "toolCalls": 270,
+    "inputCacheMissTokens": 264431,
+    "inputCacheReadTokens": 56062464,
+    "outputTokens": 126279,
+    "cacheHitRate": 0.995305,
+    "estimatedCostUsd": 0.42811665
+  },
+  "firstResponse": {
+    "systemChars": 46,
+    "systemSha256": "5fab6e32f283d71510531ce850df2690b8fb77437d36bfabbe8c4ac862f19df9",
+    "toolSchemaSha256": "ce0194bea982c46bf3acdaf09354e966fd5be990bc72c302b98ced47971b5a4c",
+    "tools": [
+      "pwsh",
+      "read"
+    ],
+    "toolCalls": 1,
+    "breadth": 1,
+    "reasoningChars": 186,
+    "compliant": true
+  },
+  "promotedState": {
+    "systemSha256": "95ee6c66039b0f2ac94a9e998e644a2721211178e0bb94c25d010db8c71579a1",
+    "toolSchemaSha256": "56761b419a0089a7240f6670bb42c010fb14e80660e696246fbdb9c4e7fe0ca9"
+  },
+  "espIdf": {
+    "status": "real_pass",
+    "artifact": "stdpro.bin",
+    "bytes": 984800,
+    "sha256": "56f2d03f59e8b63f0e232d35a948d2edd4738677fc1a530cd537a44b150ee5f8"
+  },
+  "evaluationCorrection": {
+    "candidateChanged": false,
+    "providerRequestsAdded": 0,
+    "modelTokensAdded": 0,
+    "originalInvalidResult": {
+      "ability": 93,
+      "ship": 72,
+      "releaseClass": "B",
+      "cause": "ESP-IDF evaluator build root exceeded a Windows path boundary and failed with WinError 3"
+    },
+    "correction": "Re-ran the official evaluator on the identical candidate with a short isolated ESP_IDF_BUILD_ROOT",
+    "trackedEvidence": "evidence/official-evaluator.json",
+    "rawEvidenceLocalDirectory": "../router-vs-progressive-modeltest/runs/run-win-2026-08-16_13-28-24-373/conditions/pro-contract-anchor/official-recheck-short-root"
+  },
+  "reproducibility": {
+    "eventReplayScoresSha256": "598aedf97a6dd29631a6904fb0db28f5e2a478c0ed2a80c2586f0372f46fc41a",
+    "pluginSha256": "c8bfae2d1207fdc96b58a7b6472ba149978244c832ba84f6605f3d054d720a24",
+    "stable99Claimed": false,
+    "note": "This is a descriptive complete sample, not a statistical lower bound."
+  }
+}
