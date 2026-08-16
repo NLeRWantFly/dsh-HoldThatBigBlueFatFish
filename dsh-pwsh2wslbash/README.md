@@ -4,6 +4,15 @@
 执行器。模型看到并调用 `bash`，命令实际由指定 WSL 发行版中的 `/bin/bash`
 执行；`pwsh` 工具被关闭。
 
+## 与另外两者的区别
+
+- 主仓库的 `dsv4-pro-contract-anchor` 是 agent preset，负责 Pro 的 system 与工具
+  披露；本插件不改变模型 prompt 或 preset。
+- `dsh-multimodel` 是 preset 内的视觉插件；本插件不处理图片，也不提供视觉模型。
+- 本插件安装在 `<DSH_HOME>/profiles/web` 或 `profiles/headless`，不要复制到某个
+  preset 的 `plugins/`。三者的选择表和完整安装顺序见
+  [仓库根 README](../README.md#三者区别)。
+
 ## 执行路径
 
 每次命令都以 argv 方式启动，不经过额外的 Windows shell：
@@ -29,8 +38,9 @@ wsl.exe -d Ubuntu-20.04 --exec /bin/bash -lc 'uname -s; printf "%s\n" "$BASH_VER
 
 ## 安装到旧 DSH
 
-在 DSH 安装目录的 `profiles/web/package.json` 和
-`profiles/headless/package.json` 中加入本地依赖，并把插件加入 bundle 列表：
+在 `<DSH_HOME>/profiles/web/package.json` 和
+`<DSH_HOME>/profiles/headless/package.json` 中加入本地依赖，并把插件加入 bundle
+列表。只使用一种入口时，只修改对应 profile：
 
 ```json
 {
@@ -49,8 +59,11 @@ wsl.exe -d Ubuntu-20.04 --exec /bin/bash -lc 'uname -s; printf "%s\n" "$BASH_VER
 }
 ```
 
-`headless` profile 保留自身原有 bundle，只追加 `dsh-pwsh2wslbash`。然后在对应
-profile 目录安装依赖并完整重启 DSH。
+`web` 和 `headless` profile 都必须保留自身原有 bundle，只追加
+`dsh-pwsh2wslbash`。然后在每个修改过的 profile 目录执行 `pnpm install`。
+
+如果三者全部安装，完成 profile 修改后再复制主 preset 和 `dsh-multimodel`，最后
+只重启一次 DSH。
 
 ## Bundle 变化
 

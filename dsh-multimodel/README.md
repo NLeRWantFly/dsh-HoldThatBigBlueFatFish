@@ -4,6 +4,15 @@
 DSH 路由；仅当会话出现图片时，插件才暴露 `perceive_media`，并通过独立的
 Codex CLI 或 Claude Code CLI 读取图片。
 
+## 与另外两者的区别
+
+- 主仓库的 `dsv4-pro-contract-anchor` 是 agent preset，负责 Pro 的 system 与工具
+  披露；本插件只增加按需视觉能力，不替换 DSH 主模型。
+- `dsh-pwsh2wslbash` 是宿主 profile bundle，负责把 shell 工具送进 WSL；本插件
+  不修改 shell，也不要安装到 `<DSH_HOME>/profiles/`。
+- 本插件应复制到某个 preset 的 `plugins/dsh-multimodel/`。三者的选择表和完整安装
+  顺序见[仓库根 README](../README.md#三者区别)。
+
 ## 能力
 
 - 在 provider 请求组装前将 `ImageBlock` 改写为可追溯的文本附件引用，避免
@@ -26,6 +35,9 @@ Codex CLI 或 Claude Code CLI 读取图片。
 应以本插件替换原有的工具投影行，避免同时加载两套首轮投影器。
 
 完整重启 DSH，并在新 session 中选择对应 preset。
+
+如果三者全部安装，先安装 `dsh-pwsh2wslbash` profile bundle，再安装主 preset，
+最后执行本节。所有修改完成后只需重启一次 DSH。
 
 ## 后端
 

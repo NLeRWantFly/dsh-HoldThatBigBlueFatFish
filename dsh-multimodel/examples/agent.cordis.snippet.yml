@@ -15,16 +15,16 @@
 
 # DeepSeek V4 Pro + dsh-HoldThatBigBlueFatFish:
 # Replace the existing anchored/contract tool-projection row with this row.
-# Keep the exact minimalSystem and contractSystem strings from that preset.
+# The values below are the exact v0.3 contract-anchor strings.
 #
 # - id: dsh-multimodel
 #   name: './plugins/dsh-multimodel/src/multimodal-bridge.mjs'
 #   config:
 #     holdThatBootstrap: true
-#     shellTools: [bash]
+#     shellTools: [bash, pwsh]
 #     commonTools: [read]
 #     minimalSystem: You are a helpful software engineer assistant.
-#     contractSystem: Preserve the exact preset contract string here.
+#     contractSystem: Security, migration, API/protocol, and release constraints are invariants. Use verified slices. Preserve legacy rows; backfill replacement fields before indexing. Never rename/remove existing identifiers, even static/private; if logic moves, leave exact-name wrappers. Keep protocol strings and dependency/API names literal. Use clean build roots; never replace integrations for toolchain failures. Complete requested reports before docs; skip optional docs. Stop after required checks pass.
 #     maxRounds: 6
 #     maxImages: 8
 #     timeoutMs: 180000

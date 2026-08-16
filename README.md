@@ -91,9 +91,34 @@ v0.2 因此把“高性能默认项”和“强 containment 防御项”拆开�
 - [完整 97 分报告](.dsh-data/experiments/dsv4-pro-anchored-96/report.md)
 - [精简机器可读证据](.dsh-data/experiments/dsv4-pro-anchored-96/evidence/)
 
-## 快速安装
+## 三者区别
 
-克隆仓库后，将 v0.3 Pro 默认 preset 目录完整复制到你的 DSH 用户 preset 根目录。PowerShell：
+仓库现在包含三个可组合、但安装层级不同的组件。它们不是三个互相替代的版本：
+
+| 组件 | 安装层级 | 解决的问题 | 不负责什么 | 是否可单独使用 |
+|---|---|---|---|---|
+| `dsh-HoldThatBigBlueFatFish` 主 preset | `<DSH_HOME>/.agent-presets/` | 调整 DeepSeek V4 Pro 的 system、首轮工具披露与工程契约 | 不提供视觉模型；不改变 Windows shell 执行器 | 是 |
+| [`dsh-multimodel`](dsh-multimodel/) | 某个 preset 的 `plugins/` | 出现图片时按需暴露 `perceive_media`，调用 Codex/Claude 视觉后端，并拦截不兼容的 `image_url` | 不把 pwsh 变成 Bash；不替换 DSH 主模型 | 是，可接入其他 DSH preset |
+| [`dsh-pwsh2wslbash`](dsh-pwsh2wslbash/) | `<DSH_HOME>/profiles/web` 或 `headless` | 在 Windows DSH 中关闭 `pwsh` 工具，让 `bash` 命令进入 WSL 原生 Linux | 不处理图片；不改变模型 prompt/preset；不会把整个 DSH 进程搬进 Linux | 是，Windows + WSL 专用 |
+
+按需求选择：
+
+| 目标 | 安装组合 |
+|---|---|
+| 只使用 99 分 Pro 行为 | 主 preset |
+| Pro + 图片理解 | 主 preset + `dsh-multimodel` |
+| Pro + WSL Bash | `dsh-pwsh2wslbash` + 主 preset |
+| Pro + 图片理解 + WSL Bash | 三者全部安装 |
+
+三者全部安装时，推荐顺序是：先把 `dsh-pwsh2wslbash` 加入宿主 profile，再复制主
+preset，最后把 `dsh-multimodel` 放入该 preset 并替换工具投影行。完成所有文件修改后
+只重启一次 DSH，并新建 session；不要在已有轨迹中途切换 preset。
+
+## 安装步骤
+
+### 1. 安装主 preset
+
+克隆仓库后，将 v0.3 Pro 默认 preset 目录完整复制到 DSH 用户 preset 根目录。PowerShell：
 
 ```powershell
 if (-not $env:DSH_HOME) { throw '请先设置 DSH_HOME' }
@@ -114,12 +139,90 @@ cp -R .dsh-data/.agent-presets/dsv4-pro-contract-anchor \
   "$DSH_HOME/.agent-presets/dsv4-pro-contract-anchor"
 ```
 
-完整重启 DeepSeek Harness，新建空白 session，选择 `DeepSeek V4 Pro Contract Anchor v0.3.0`。不要在已有轨迹的会话中途切换 preset。需要持续硬预算时，改装同仓库的 `dsv4-progressive-guarded`。
+需要持续硬预算时，改装同仓库的 `dsv4-progressive-guarded`，不要同时把两个 preset
+目录合并成一个目录。
+
+### 2. 可选：加入图片理解
+
+`dsh-multimodel` 是 **preset 内插件**，不是 DSH profile bundle。PowerShell：
+
+```powershell
+if (-not $env:DSH_HOME) { throw '请先设置 DSH_HOME' }
+$preset = Join-Path $env:DSH_HOME '.agent-presets\dsv4-pro-contract-anchor'
+$source = Resolve-Path '.\dsh-multimodel'
+$target = Join-Path $preset 'plugins\dsh-multimodel'
+if (-not (Test-Path -LiteralPath $preset)) { throw "请先安装主 preset：$preset" }
+if (Test-Path -LiteralPath $target) { throw "目标已存在：$target" }
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+Copy-Item -Recurse -LiteralPath $source -Destination $target
+```
+
+然后在该 preset 的 `agent.cordis.yml` 中删除原来的
+`dsv4-pro-contract-anchor-tools` 服务行，按
+[`agent.cordis.snippet.yml`](dsh-multimodel/examples/agent.cordis.snippet.yml)
+加入 `dsh-multimodel` 行。两者都负责首轮工具投影，不能同时加载。必须保留 v0.3
+原有的 `minimalSystem` 与 `contractSystem`；完整值来自
+[`contract-anchor.mjs`](.dsh-data/.agent-presets/dsv4-pro-contract-anchor/contract-anchor.mjs)。
+
+视觉后端还需要至少一个可执行的原生 CLI：Codex 或 Claude。Windows 下如果 Node
+启动 Microsoft Store 的 `codex.exe` 返回 `spawn EPERM`，请把 `codex.command`
+显式设置为 npm Codex 包内的原生 `.exe`；详见
+[`dsh-multimodel/README.md`](dsh-multimodel/README.md)。
+
+### 3. 可选：把 pwsh 工具切换为 WSL Bash
+
+`dsh-pwsh2wslbash` 是 **宿主 profile bundle**，不要复制进 preset 的 `plugins/`。
+先确认 WSL 发行版可用：
+
+```powershell
+wsl.exe --list --quiet
+wsl.exe -d Ubuntu-20.04 --exec /bin/bash -lc 'uname -s; printf "%s\n" "$BASH_VERSION"'
+```
+
+在实际使用的 profile 中安装：桌面/Web 使用
+`$env:DSH_HOME\profiles\web\package.json`，命令行 headless 使用
+`$env:DSH_HOME\profiles\headless\package.json`；两种入口都使用就修改两个文件。
+为对应 `package.json` 增加：
+
+```json
+{
+  "dependencies": {
+    "dsh-pwsh2wslbash": "file:C:/absolute/path/dsh-pwsh2wslbash"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app",
+        "dsh-pwsh2wslbash"
+      ]
+    }
+  }
+}
+```
+
+这是 Web profile 示例。Headless 应保留 `@deepseek-ai/dsh-base` 和
+`@deepseek-ai/dsh-headless`，再追加 `dsh-pwsh2wslbash`。不要覆盖其他原有
+`bundles`。随后在每个修改过的 profile 目录执行 `pnpm install`。完整示例见
+[`dsh-pwsh2wslbash/README.md`](dsh-pwsh2wslbash/README.md)。
+
+### 4. 重启与验证
+
+所有组件安装完成后完整重启 DeepSeek Harness，新建空白 session，选择
+`DeepSeek V4 Pro Contract Anchor v0.3.0`。
+
+```text
+主 preset：首请求只有当前原生 shell + read，首次持久化 tool/call 后恢复完整工具。
+视觉插件：上传图片后可见 perceive_media，纯文本请求不增加视觉工具。
+WSL 插件：bash 输出 Linux，node -p process.platform 输出 linux，且不再出现 pwsh 工具。
+```
 
 验证发布包：
 
 ```powershell
 npm.cmd test
+npm.cmd test --prefix .\dsh-multimodel
+npm.cmd test --prefix .\dsh-pwsh2wslbash
 ```
 
 ## 总结
