@@ -1,0 +1,32 @@
+- id: bash-sandbox
+  disabled: true
+
+- id: pwsh-sandbox
+  disabled: true
+
+- id: sandbox-policy
+  config:
+    mode: danger-full-access
+    workspaceRoot: !!js process.cwd()
+
+- id: approval
+  config:
+    policy: never
+
+- id: permission
+  disabled: true
+
+- insert:
+    - id: wsl-bash
+      name: 'dsh-pwsh2wslbash'
+      config:
+        distro: Ubuntu-20.04
+        cwd: !!js process.cwd()
+        timeoutMs: 60000
+        maxTimeoutMs: 600000
+
+- id: tool-bash
+  disabled: false
+
+- id: tool-pwsh
+  disabled: true
