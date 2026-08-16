@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -9,6 +9,21 @@ export const PRESET_ID = 'dsv4-pro-anchored-96'
 export const RELEASE_VERSION = 'v0.2'
 
 const here = dirname(fileURLToPath(import.meta.url))
+
+async function exists(path) {
+  try { await access(path); return true } catch { return false }
+}
+
+async function standardPathFor(root) {
+  const candidates = [
+    join(root, 'apps', 'cli', 'config', 'agent-presets', 'standard', 'agent.cordis.yml'),
+    join(root, 'config', 'agent-presets', 'standard', 'agent.cordis.yml'),
+  ]
+  for (const candidate of candidates) {
+    if (await exists(candidate)) return candidate
+  }
+  throw new Error(`could not find Standard agent.cordis.yml under ${root}; tried:\n${candidates.join('\n')}`)
+}
 
 export function sha256(text) {
   return createHash('sha256').update(text).digest('hex')
@@ -47,7 +62,7 @@ export function composePreset(standard) {
 export async function install(options = {}) {
   const sourceRoot = resolve(options.sourceRoot ?? process.env.DSH_SOURCE_ROOT ?? process.cwd())
   const dshHome = resolve(options.dshHome ?? process.env.DSH_TARGET_HOME ?? join(sourceRoot, '.dsh-data'))
-  const standardPath = join(sourceRoot, 'apps', 'cli', 'config', 'agent-presets', 'standard', 'agent.cordis.yml')
+  const standardPath = await standardPathFor(sourceRoot)
   const target = join(dshHome, '.agent-presets', PRESET_ID)
   const standard = await readFile(standardPath, 'utf8')
   const composition = composePreset(standard)

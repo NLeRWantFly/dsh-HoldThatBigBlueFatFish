@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { access, cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
@@ -14,6 +14,21 @@ const here = dirname(fileURLToPath(import.meta.url))
 const sourceRoot = resolve(process.env.DSH_SOURCE_ROOT ?? process.cwd())
 const presetRoot = resolve(process.env.DSH_PRESET_ROOT ?? join(here, '..', '..', '..', '.agent-presets'))
 const preset = 'dsv4-progressive-guarded'
+
+async function exists(path) {
+  try { await access(path); return true } catch { return false }
+}
+
+async function cliBinFor(root) {
+  const candidates = [
+    join(root, 'apps', 'cli', 'lib', 'bin.js'),
+    join(root, 'lib', 'bin.js'),
+  ]
+  for (const candidate of candidates) {
+    if (await exists(candidate)) return candidate
+  }
+  throw new Error(`could not find dsh CLI bin.js under ${root}; tried:\n${candidates.join('\n')}`)
+}
 const nativeShell = 'bash'
 const probeCommand = 'find . -maxdepth 1 -mindepth 1 -print | head -n 50'
 const locationCommand = 'pwd'
@@ -125,7 +140,7 @@ const api = createServer(async (request, response) => {
 await new Promise(resolveReady => api.listen(apiPort, '127.0.0.1', resolveReady))
 
 let stderr = ''
-const dsh = spawn(process.execPath, [join(sourceRoot, 'apps', 'cli', 'lib', 'bin.js'), 'web', '--host', '127.0.0.1', '--port', String(dshPort)], {
+const dsh = spawn(process.execPath, [await cliBinFor(sourceRoot), 'web', '--host', '127.0.0.1', '--port', String(dshPort)], {
   cwd: sourceRoot,
   windowsHide: true,
   env: { ...process.env, DSH_HOME: home, DEEPSEEK_API_KEY: 'production-smoke-key', DEEPSEEK_BASE_URL: `http://127.0.0.1:${apiPort}` },
@@ -198,7 +213,7 @@ try {
 
   const denialText = history.filter(event => event.type === 'tool/result').map(event => JSON.stringify(event.data?.message?.content ?? '')).join('\n')
   assert.equal((denialText.match(/PROGRESSIVE_MUTATION_TOO_LARGE/g) ?? []).length, 1)
-  assert.equal((denialText.match(/PROGRESSIVE_ENVIRONMENT_BLOCKED/g) ?? []).length, 1)
+  assert.equal((denialText.match(/PROGRESSIVE_REPEAT_BLOCKED/g) ?? []).length, 1)
   const probeResult = history.find(event => event.type === 'tool/result' && JSON.stringify(event.data).includes('call-probe'))
   assert(probeResult)
 
@@ -219,7 +234,8 @@ try {
     fixedToolSchema: true,
     oversizedMutationDenials: 1,
     convergenceDenials: 1,
-    environmentRetryStops: 1,
+    repeatedCheckStops: 1,
+    environmentRetryStops: 0,
     systemSha256: sha256(PERSONA),
     firstShellSchemaBytes: initialShellSchemaBytes,
     laterShellSchemaBytes: promotedShellSchemaBytes,

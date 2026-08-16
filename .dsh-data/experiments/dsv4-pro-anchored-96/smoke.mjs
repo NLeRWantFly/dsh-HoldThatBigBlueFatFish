@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { access, cp, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
@@ -11,6 +11,21 @@ import { MINIMAL_SYSTEM, PRESET_ID } from './install.mjs'
 
 const sourceRoot = resolve(process.env.DSH_SOURCE_ROOT ?? process.cwd())
 const deployedHome = resolve(process.env.DSH_TARGET_HOME ?? join(sourceRoot, '.dsh-data'))
+
+async function exists(path) {
+  try { await access(path); return true } catch { return false }
+}
+
+async function cliBinFor(root) {
+  const candidates = [
+    join(root, 'apps', 'cli', 'lib', 'bin.js'),
+    join(root, 'lib', 'bin.js'),
+  ]
+  for (const candidate of candidates) {
+    if (await exists(candidate)) return candidate
+  }
+  throw new Error(`could not find dsh CLI bin.js under ${root}; tried:\n${candidates.join('\n')}`)
+}
 const temporary = await mkdtemp(join(tmpdir(), 'dsv4-pro-anchored-96-smoke-'))
 const home = join(temporary, 'home')
 const workspace = join(temporary, 'workspace')
@@ -55,7 +70,7 @@ const childEnv = {
 }
 let stdout = ''
 let stderr = ''
-const dsh = spawn(process.execPath, [join(sourceRoot, 'apps', 'cli', 'lib', 'bin.js'), 'web', '--host', '127.0.0.1', '--port', String(dshPort)], {
+const dsh = spawn(process.execPath, [await cliBinFor(sourceRoot), 'web', '--host', '127.0.0.1', '--port', String(dshPort)], {
   cwd: sourceRoot,
   windowsHide: true,
   env: childEnv,

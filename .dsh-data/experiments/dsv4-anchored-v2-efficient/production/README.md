@@ -163,6 +163,18 @@ node production\verify.mjs
 node production\smoke.mjs
 ```
 
+全局 npm 安装布局下：
+
+```powershell
+node production\model-policy.tests.mjs
+node production\portable-bash.tests.mjs
+node production\tests.mjs
+$env:DSH_SOURCE_ROOT=(Join-Path (npm root -g) '@deepseek-ai\dsh')
+node production\install.mjs
+node production\verify.mjs
+node production\smoke.mjs
+```
+
 单元测试覆盖模型策略、Windows/Linux 浅层探针、错误结果、不可信 session、变更预算、跨工具 stop、Plan Mode、请求上限和 HMR dispose。`smoke.mjs` 不消耗官方模型 token。
 
 ## 2026-08-16 收敛控制更新

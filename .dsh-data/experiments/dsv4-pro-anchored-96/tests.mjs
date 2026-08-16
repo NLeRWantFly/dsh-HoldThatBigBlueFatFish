@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -8,7 +8,23 @@ import { filterFirstRequest, hasDurableToolCall } from './anchored-tools.mjs'
 import { install, MINIMAL_SYSTEM, PRESET_ID, RELEASE_VERSION } from './install.mjs'
 
 const sourceRoot = resolve(process.env.DSH_SOURCE_ROOT ?? process.cwd())
-const standardPath = join(sourceRoot, 'apps', 'cli', 'config', 'agent-presets', 'standard', 'agent.cordis.yml')
+
+async function exists(path) {
+  try { await access(path); return true } catch { return false }
+}
+
+async function standardPathFor(root) {
+  const candidates = [
+    join(root, 'apps', 'cli', 'config', 'agent-presets', 'standard', 'agent.cordis.yml'),
+    join(root, 'config', 'agent-presets', 'standard', 'agent.cordis.yml'),
+  ]
+  for (const candidate of candidates) {
+    if (await exists(candidate)) return candidate
+  }
+  throw new Error(`could not find Standard agent.cordis.yml under ${root}; tried:\n${candidates.join('\n')}`)
+}
+
+const standardPath = await standardPathFor(sourceRoot)
 const tools = [
   { name: 'read', description: 'read', inputSchema: { type: 'object', properties: { file_path: { type: 'string' } } } },
   { name: 'pwsh', description: 'shell', inputSchema: { type: 'object', properties: { command: { type: 'string' } } } },

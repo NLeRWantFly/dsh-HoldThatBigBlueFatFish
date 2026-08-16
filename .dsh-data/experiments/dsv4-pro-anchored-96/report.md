@@ -69,8 +69,18 @@ system remains Minimal for the whole turn
 
 部署：
 
+源码仓库布局：
+
 ```powershell
-$env:DSH_SOURCE_ROOT = 'C:\Users\顶真\Documents\Codex\2026-08-13\ba\work\deepseek-harness'
+$env:DSH_SOURCE_ROOT = 'C:\path\to\deepseek-harness'
+node .dsh-data\experiments\dsv4-pro-anchored-96\tests.mjs
+node .dsh-data\experiments\dsv4-pro-anchored-96\install.mjs
+```
+
+当前全局 npm 安装布局：
+
+```powershell
+$env:DSH_SOURCE_ROOT = (Join-Path (npm root -g) '@deepseek-ai\dsh')
 node .dsh-data\experiments\dsv4-pro-anchored-96\tests.mjs
 node .dsh-data\experiments\dsv4-pro-anchored-96\install.mjs
 ```

@@ -11,7 +11,7 @@ dsv4-pro-anchored-96       Pro 高性能默认项：Minimal → 首次 shell/rea
 dsv4-progressive-guarded   防御项：固定核心工具 + mutation/diagnostic/stop budgets
 ```
 
-这是社区实验，不是 DeepSeek 官方 preset，也不代表 DeepSeek 的认可或背书。当前 composition 基于 DeepSeek Harness `47f943859bef60e4160492346772ded9b24f765a` 的 Standard preset 生成；Harness 升级后应重新运行验证。
+这是社区实验，不是 DeepSeek 官方 preset，也不代表 DeepSeek 的认可或背书。当前 composition 基于当前机器安装的 DeepSeek Harness `@deepseek-ai/dsh@0.1.0-rc.6` 的 Standard preset 生成；Harness 升级后应重新运行验证。
 
 ## v0.2：改了什么，为什么
 
@@ -109,7 +109,7 @@ npm.cmd test
 | Windows shell | 模型直接面对 PowerShell 生态与 Harness 特有字段 | Linux 风格 `bash` facade 代理到受 ACL 约束的原生 `pwsh`；不启动 Git Bash、不提权 |
 | 缓存边界 | Pro 两阶段、一次 schema 晋级 | Pro 的 system/tool 前缀全程固定，真实 Cordis smoke 中 schema transition 为 0 |
 
-真实 DSH fake-API smoke 共 7 个 agent request、1 个 request header、1 个 system hash、1 个 tool schema hash、0 次 schema transition；12,001 字符变更与第三次环境重试均被拒绝。这个结果证明插件不额外切断缓存前缀，但不等同于官方 API 的实际 cache-hit rate。Docker daemon 当时未运行，因此 Linux 只完成同代码路径的契约测试，仍不声称真实跨 OS 等价。
+真实 DSH fake-API smoke 共 7 个 agent request、1 个 request header、1 个 system hash、1 个 tool schema hash、0 次 schema transition；12,001 字符变更与第三次重复检查均被拒绝。这个结果证明插件不额外切断缓存前缀，但不等同于官方 API 的实际 cache-hit rate。Docker daemon 当时未运行，因此 Linux 只完成同代码路径的契约测试，仍不声称真实跨 OS 等价。
 
 ## 历史 v0.1 消融数据
 
@@ -168,7 +168,7 @@ Progressive 的 Plan Mode 会按持久化 `plan/mode` 事件绕过其 Guard，�
 <DSH_HOME>/.agent-presets/dsv4-progressive-guarded
 ```
 
-Anchored 的三文件发布目录与 97 分版本哈希一致：composition `d6957d9c…`、插件 `ea9526f…`。其单元测试、真实 DSH fake-API 冒烟、正式 Project2 和离线 replay 均通过。Progressive 的六个安装文件也逐字节哈希一致；Windows fake-API smoke 证明固定 6 工具 schema、portable `bash` 的 ACL 代理、12,001 字符写入拒绝与第三次环境重试停止均生效。验证产物：
+Anchored 的三文件发布目录与 97 分版本哈希一致：composition `d6957d9c…`、插件 `ea9526f…`。其单元测试、真实 DSH fake-API 冒烟、正式 Project2 和离线 replay 均通过。Progressive 的六个安装文件也逐字节哈希一致；Windows fake-API smoke 证明固定 6 工具 schema、portable `bash` 的 ACL 代理、12,001 字符写入拒绝与第三次重复检查停止均生效。验证产物：
 
 - [插件源码](.dsh-data/experiments/dsv4-anchored-v2-efficient/production/progressive-guard.mjs)
 - [Windows portable bash](.dsh-data/experiments/dsv4-anchored-v2-efficient/production/portable-bash.mjs)

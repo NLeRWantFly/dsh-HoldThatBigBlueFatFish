@@ -144,8 +144,19 @@ Plan Mode 通过持久化 `plan/mode` 事件识别并绕过插件过滤，由 Ha
 
 在实验目录执行：
 
+源码仓库布局：
+
 ```powershell
 $env:DSH_SOURCE_ROOT='C:\path\to\deepseek-harness'
+node production\install.mjs
+node production\tests.mjs
+node production\smoke.mjs
+```
+
+当前全局 npm 安装布局：
+
+```powershell
+$env:DSH_SOURCE_ROOT=(Join-Path (npm root -g) '@deepseek-ai\dsh')
 node production\install.mjs
 node production\tests.mjs
 node production\smoke.mjs

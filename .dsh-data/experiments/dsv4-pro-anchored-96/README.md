@@ -4,8 +4,18 @@
 
 预设不分析 reasoning/text，不使用易失状态，不以 `assistant/message` 或 `tool/result` 晋级，不增加工具 Guard、输出上限或全程工具裁剪。共享工具直接来自 Standard 注册表，schema 不重写。
 
+源码仓库布局：
+
 ```powershell
-$env:DSH_SOURCE_ROOT = 'C:\Users\顶真\Documents\Codex\2026-08-13\ba\work\deepseek-harness'
+$env:DSH_SOURCE_ROOT = 'C:\path\to\deepseek-harness'
+node .dsh-data\experiments\dsv4-pro-anchored-96\tests.mjs
+node .dsh-data\experiments\dsv4-pro-anchored-96\install.mjs
+```
+
+当前全局 npm 安装布局：
+
+```powershell
+$env:DSH_SOURCE_ROOT = (Join-Path (npm root -g) '@deepseek-ai\dsh')
 node .dsh-data\experiments\dsv4-pro-anchored-96\tests.mjs
 node .dsh-data\experiments\dsv4-pro-anchored-96\install.mjs
 ```
