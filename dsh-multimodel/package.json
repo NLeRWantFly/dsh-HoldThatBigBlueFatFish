@@ -1,0 +1,16 @@
+{
+  "name": "dsh-multimodel",
+  "version": "0.1.4",
+  "description": "On-demand Codex or Claude multimodal bridge for DeepSeek Harness",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/verify.mjs && node tests/tool-result-regression.mjs src/multimodal-bridge.mjs rewritten",
+    "verify": "node tests/verify.mjs",
+    "regression": "node tests/tool-result-regression.mjs src/multimodal-bridge.mjs rewritten"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "license": "MIT"
+}
