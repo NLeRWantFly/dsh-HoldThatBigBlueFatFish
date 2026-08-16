@@ -106,11 +106,17 @@ const api = createServer(async (request, response) => {
       arguments: { command: 'node --check app.js', description: 'Check JavaScript syntax' },
     }])
   } else if (isAgent && agentRequest === 5) {
-    assistantToolResponse(response, 'attempt three different speculative audits', [
-      { id: 'call-audit-read', name: 'read', arguments: { file_path: 'app.js' } },
-      { id: 'call-audit-grep', name: 'grep', arguments: { pattern: 'console', path: 'app.js' } },
-      { id: 'call-audit-shell', name: nativeShell, arguments: { command: locationCommand, description: 'Show current location' } },
-    ])
+    assistantToolResponse(response, 'retry the environment-blocked check once', [{
+      id: 'call-check-2',
+      name: nativeShell,
+      arguments: { command: 'node --check app.js', description: 'Retry JavaScript syntax check' },
+    }])
+  } else if (isAgent && agentRequest === 6) {
+    assistantToolResponse(response, 'attempt a third environment-blocked check', [{
+      id: 'call-check-3',
+      name: nativeShell,
+      arguments: { command: 'node --check app.js', description: 'Retry JavaScript syntax check again' },
+    }])
   } else {
     assistantTextResponse(response, 'finish after bounded verification', 'done')
   }
@@ -166,7 +172,7 @@ try {
   }
 
   const agentRequests = requests.filter(request => Array.isArray(request.tools) && request.tools.length > 0)
-  assert.equal(agentRequests.length, 6)
+  assert.equal(agentRequests.length, 7)
   const core = ['edit', 'glob', 'grep', nativeShell, 'read', 'write'].sort()
   assert.deepEqual(agentRequests[0].tools.map(tool => tool.function.name).sort(), core)
   const initialShell = agentRequests[0].tools.find(tool => tool.function.name === nativeShell).function
@@ -187,12 +193,12 @@ try {
   assert.deepEqual([...new Set(systems)], [PERSONA])
   const headers = history.filter(event => event.type === 'request/header')
   assert.equal(headers.length, 1)
-  assert(headers.every(event => event.data.header.config.maxTokens === 16_384))
+  assert(headers.every(event => event.data.header.config.maxTokens === 8_192))
   assert.deepEqual(headers.map(event => event.data.header.config.reasoningEffort), ['high'])
 
   const denialText = history.filter(event => event.type === 'tool/result').map(event => JSON.stringify(event.data?.message?.content ?? '')).join('\n')
   assert.equal((denialText.match(/PROGRESSIVE_MUTATION_TOO_LARGE/g) ?? []).length, 1)
-  assert.equal((denialText.match(/PROGRESSIVE_STOP_AFTER_CHECK/g) ?? []).length, 1)
+  assert.equal((denialText.match(/PROGRESSIVE_ENVIRONMENT_BLOCKED/g) ?? []).length, 1)
   const probeResult = history.find(event => event.type === 'tool/result' && JSON.stringify(event.data).includes('call-probe'))
   assert(probeResult)
 
@@ -207,12 +213,13 @@ try {
     shellRuntime: process.platform === 'win32' ? 'portable-bash-over-sandboxed-pwsh' : 'native-bash',
     firstTools: core,
     fixedTools: core,
-    maxTokens: 16_384,
+    maxTokens: 8_192,
     reasoningEffort: 'high',
     emptyWorkspaceProbe: true,
     fixedToolSchema: true,
     oversizedMutationDenials: 1,
     convergenceDenials: 1,
+    environmentRetryStops: 1,
     systemSha256: sha256(PERSONA),
     firstShellSchemaBytes: initialShellSchemaBytes,
     laterShellSchemaBytes: promotedShellSchemaBytes,

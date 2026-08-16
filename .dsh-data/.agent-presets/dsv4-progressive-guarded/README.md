@@ -35,7 +35,7 @@ V4 Flash 仍适合 `dsh-router-standard` 的弱 persona 与渐进披露；本 pr
 
 ```text
 You are a helpful software engineer assistant.
-Work in small tested slices: build or fix only the next runnable piece, prefer real validation, label simulated checks as simulated, and stop when the relevant check passes with no concrete failure.
+Work only on the next runnable slice using existing evidence. Make one bounded change, run one relevant check, then finish. Never repair the harness or toolchain. If PROGRESSIVE_FINAL_REQUIRED appears, stop tool use and report evidence and remaining risk.
 ```
 
 设置保持：
@@ -139,8 +139,14 @@ DSV4 Progressive Guarded
     maxUnverifiedMutationChars: 24000
     maxMutationsPerStep: 2
     maxPostCheckCalls: 2
+    maxPostPassMutations: 1
+    maxPostPassDiagnostics: 2
+    maxCallsWithoutProgress: 16
+    maxEnvironmentFailuresPerCheck: 2
+    maxTotalToolCalls: 80
+    maxAssistantSteps: 64
     repeatLimit: 2
-    requestMaxTokens: 16384
+    requestMaxTokens: 8192
 ```
 
 `bootstrapTools` 与语义晋级逻辑仅为 Flash/兼容性路径保留；在显式 Pro 策略下，从首请求起就是固定 core schema。Plan Mode 继续绕过过滤、Guard 和请求整形，由 Harness 原生规划策略接管。
@@ -158,3 +164,19 @@ node production\smoke.mjs
 ```
 
 单元测试覆盖模型策略、Windows/Linux 浅层探针、错误结果、不可信 session、变更预算、跨工具 stop、Plan Mode、请求上限和 HMR dispose。`smoke.mjs` 不消耗官方模型 token。
+
+## 2026-08-16 收敛控制更新
+
+OpenCode Go / V4 Pro Max 的 Project2 运行在人工截停前达到 210 次请求和 271 次工具调用。缓存稳定性已经健康（单一 system hash、单一 tool-schema hash、99.34% 输入缓存命中率）；剩余瓶颈是工作流无法收敛。
+
+本次更新加入了完全由持久事件推导、会话重载后仍一致的控制，同时不在请求间改变工具 schema：
+
+- 已完成但失败的检查会开启新的修复切片；Guard 拒绝不会伪装成项目证据；
+- 连续十六次已执行诊断没有 mutation 或 check 时，必须推进、检查或结束；Guard/portable-bash 拒绝不消耗该预算，但仍计入绝对总调用上限；明确子目录的浅层查看和至少两级锚定的递归 glob 正常允许；
+- runtime 版本、可执行文件位置和 `.venv/.pytool` 探测直接拒绝；同一检查或同一 runtime family 出现两次环境失败后，禁止继续重试；
+- 禁止修改生成的 Python runtime、依赖缓存及 Harness bootstrap 文件；
+- 检查通过后只允许一次直接相关的 mutation，随后必须复验或结束；
+- 会话达到 80 次工具调用或超过 64 个 assistant step 后停止工具使用；
+- 单次请求输出上限降至 8,192 token，reasoning effort 仍由模型路由决定。
+
+这些规则是运行时 containment，不会把人工截停的评分变成可与自然完成样本比较的质量结果。

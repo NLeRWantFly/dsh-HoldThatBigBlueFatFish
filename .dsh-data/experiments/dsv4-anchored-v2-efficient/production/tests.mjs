@@ -3,10 +3,16 @@ import assert from 'node:assert/strict'
 import { FLASH_PERSONA, PRO_PERSONA } from './model-policy.mjs'
 import {
   BOOTSTRAP_WRITE_BLOCKED,
+  ENVIRONMENT_BLOCKED,
+  ENVIRONMENT_PROBE_BLOCKED,
+  ENVIRONMENT_WORKAROUND_BLOCKED,
+  FINAL_REQUIRED,
   FIRST_STEP_BUDGET,
   INTERNAL_CONTEXT_BLOCKED,
   INVENTORY_BLOCKED,
   MUTATION_TOO_LARGE,
+  PROGRESS_REQUIRED,
+  RECHECK_REQUIRED,
   REPEAT_BLOCKED,
   SHELL_CONTENT_WRITE_BLOCKED,
   SLICE_BUDGET,
@@ -23,6 +29,7 @@ import {
   shapeAssembly,
   shapeRequest,
   successfulResult,
+  workflowStage,
 } from './progressive-guard.mjs'
 
 function call(callId, name, args, seq = 10) {
@@ -212,6 +219,9 @@ const bashCatalog = { ...catalog, tools: catalog.tools.map(tool => tool.name ===
 assert.deepEqual(filterCatalog(bashCatalog, []).tools.map(tool => tool.name), ['read', 'bash'])
 assert.equal(guardDecision(exec('bash', { command: boundedBash }, [])), undefined)
 assert.equal(guardDecision(exec('bash', { command: 'find . -type f' }, [])), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('bash', { command: 'ls reference' }, [])), undefined)
+assert.equal(guardDecision(exec('bash', { command: 'ls tests/public' }, [])), undefined)
+assert.equal(guardDecision(exec('bash', { command: 'ls -la' }, [])), INVENTORY_BLOCKED)
 
 // The promoted catalog is stable and gives mutation schemas a model-visible bound.
 const promoted = [read, result('read-1', '<content>todo</content>')]
@@ -237,6 +247,10 @@ assert.equal(guardDecision(exec('pwsh', { command: 'npm test', run_in_background
 assert.equal(guardDecision(exec('pwsh', { command: 'python tests\\run_public_tests.py project2_task' }, [])), undefined)
 assert.equal(guardDecision(exec('pwsh', { command: "Set-Content -Path x.txt -Value 'x'" }, [])), BOOTSTRAP_WRITE_BLOCKED)
 assert.equal(guardDecision(exec('glob', { pattern: '**/*' }, promoted)), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('glob', { pattern: '**/*.md' }, promoted)), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('glob', { pattern: 'project2_task/**/*' }, promoted)), INVENTORY_BLOCKED)
+assert.equal(guardDecision(exec('glob', { pattern: 'project2_task/esp32/testpro4/**/*' }, promoted)), undefined)
+assert.equal(guardDecision(exec('glob', { pattern: 'tests/public/**/*' }, promoted)), undefined)
 assert.equal(guardDecision(exec('glob', { pattern: 'project2_task/**/*.py' }, promoted)), undefined)
 assert.equal(guardDecision(exec('grep', { pattern: 'TODO' }, promoted)), INVENTORY_BLOCKED)
 assert.equal(guardDecision(exec('grep', { pattern: 'TODO', path: 'project2_task' }, promoted)), undefined)
@@ -282,6 +296,18 @@ assert.equal(guardDecision(
   { maxUnverifiedMutationChars: 10_000 },
 ), undefined)
 
+// A completed failing check is evidence too: it opens a fresh repair slice.
+const checkedFailure = [
+  ...unverified.slice(0, -1),
+  call('check-failed', 'pwsh', { command: 'node --check a.js' }, 22),
+  result('check-failed', 'SyntaxError: expected token\n[exit code: 1]', 23),
+  assistant([{ name: 'write', args: { file_path: 'b.js', content: 'b'.repeat(3_000) } }], 4, 24),
+]
+assert.equal(guardDecision(
+  exec('write', { file_path: 'b.js', content: 'b'.repeat(3_000) }, checkedFailure),
+  { maxUnverifiedMutationChars: 10_000 },
+), undefined)
+
 // A passed final check gets a total audit budget across different tools and commands.
 const afterPass = [
   ...promoted,
@@ -311,13 +337,73 @@ const reopenedByFix = [
   assistant([{ name: 'read', args: { file_path: 'app.js' } }], 6, 26),
 ]
 assert.equal(guardDecision(exec('read', { file_path: 'app.js' }, reopenedByFix)), undefined)
+assert.equal(guardDecision(
+  exec('edit', { file_path: 'app.js', old_string: 'fixed', new_string: 'fixed-again' }, reopenedByFix),
+), RECHECK_REQUIRED)
 
+const postPassDiagnostics = [
+  ...reopenedByFix.slice(0, -1),
+  call('audit-1', 'read', { file_path: 'app.js' }, 26), result('audit-1', 'fixed', 27),
+  call('audit-2', 'grep', { pattern: 'fixed', path: 'app.js' }, 28), result('audit-2', '1 match', 29),
+]
+assert.equal(guardDecision(exec('read', { file_path: 'other.js' }, postPassDiagnostics)), RECHECK_REQUIRED)
+
+// Environment failures are not invitations to repair the harness or retry forever.
 const command = 'python tests\\run_public_tests.py project2_task'
+const environmentBlocked = [
+  ...promoted,
+  call('env-1', 'pwsh', { command }, 20), result('env-1', 'PermissionError: [WinError 5] Access is denied\n[exit code: 1]', 21),
+  call('env-2', 'pwsh', { command }, 22), result('env-2', '[sandbox: write denied]\n[exit code: 1]', 23),
+]
+assert.equal(guardDecision(exec('pwsh', { command }, environmentBlocked)), ENVIRONMENT_BLOCKED)
+const pythonRuntimeBlocked = [
+  ...promoted,
+  call('runtime-1', 'bash', { command: 'python tests/run_public_tests.py project2_task' }, 20), result('runtime-1', '(no output)\n[exit code: 1]', 21),
+  call('runtime-2', 'bash', { command: 'python tools/run_debug_probe.py project2_task' }, 22), result('runtime-2', '(no output)\n[exit code: 1]', 23),
+]
+assert.equal(guardDecision(exec('bash', { command: 'python -m pytest tests/public' }, pythonRuntimeBlocked)), ENVIRONMENT_BLOCKED)
+assert.equal(guardDecision(exec('bash', { command: 'python --version' }, promoted)), ENVIRONMENT_PROBE_BLOCKED)
+assert.equal(guardDecision(exec('bash', { command: 'where python' }, promoted)), ENVIRONMENT_PROBE_BLOCKED)
+assert.equal(guardDecision(exec('glob', { pattern: '**/python.exe' }, promoted)), ENVIRONMENT_PROBE_BLOCKED)
+assert.equal(guardDecision(exec('glob', { pattern: '**/.venv/**' }, promoted)), ENVIRONMENT_PROBE_BLOCKED)
+assert.equal(guardDecision(exec('write', { file_path: 'sitecustomize.py', content: 'patch tempfile' }, promoted)), ENVIRONMENT_WORKAROUND_BLOCKED)
+assert.equal(guardDecision(exec('edit', { file_path: '.pytool/runtime/package.json', old_string: 'a', new_string: 'b' }, promoted)), ENVIRONMENT_WORKAROUND_BLOCKED)
+assert.equal(guardDecision(exec('bash', { command: 'npm install @agent-webui/ai-desk-python-win32-x64 --prefix .pytool' }, promoted)), ENVIRONMENT_WORKAROUND_BLOCKED)
+
+// Progress and total budgets are derived from persisted events and survive reloads.
+const diagnosticsOnly = [
+  call('d1', 'read', { file_path: 'a.js' }, 20), result('d1', 'a', 21),
+  call('d2', 'grep', { pattern: 'x', path: 'a.js' }, 22), result('d2', 'x', 23),
+]
+const deniedOnly = [
+  call('denied', 'glob', { pattern: '**/*' }, 18), result('denied', `Error: ${INVENTORY_BLOCKED}`, 19, true),
+]
+assert.equal(guardDecision(exec('read', { file_path: 'a.js' }, deniedOnly), { maxCallsWithoutProgress: 1 }), undefined)
+assert.equal(guardDecision(exec('read', { file_path: 'b.js' }, diagnosticsOnly), { maxCallsWithoutProgress: 2 }), PROGRESS_REQUIRED)
+assert.equal(guardDecision(exec('write', { file_path: 'b.js', content: 'small' }, diagnosticsOnly), { maxCallsWithoutProgress: 2 }), undefined)
+assert.equal(guardDecision(exec('pwsh', { command: 'npm test' }, diagnosticsOnly), { maxCallsWithoutProgress: 2 }), undefined)
+assert.equal(guardDecision(exec('read', { file_path: 'b.js' }, diagnosticsOnly), { maxTotalToolCalls: 2 }), FINAL_REQUIRED)
+
+assert.equal(workflowStage([], { maxTotalToolCalls: 99 }), 'discovery')
+assert.equal(workflowStage([
+  call('stage-write', 'write', { file_path: 'app.js', content: 'x' }), result('stage-write', 'ok'),
+], { maxTotalToolCalls: 99 }), 'implementation')
+assert.equal(workflowStage(afterPass.slice(0, -1), { maxTotalToolCalls: 99 }), 'acceptance')
+assert.equal(workflowStage(reopenedByFix.slice(0, -1), { maxTotalToolCalls: 99 }), 'recheck')
+assert.equal(workflowStage(diagnosticsOnly, { maxTotalToolCalls: 2 }), 'final')
+
 const repeated = [
   ...promoted,
   call('s1', 'pwsh', { command }, 20), result('s1', '[exit code: 0]', 21),
   call('s2', 'pwsh', { command }, 22), result('s2', '[exit code: 0]', 23),
 ]
+const duplicatePersistedCall = [
+  ...promoted,
+  call('same-call', 'pwsh', { command }, 20),
+  call('same-call', 'pwsh', { command }, 20),
+  result('same-call', '[exit code: 0]', 21),
+]
+assert.equal(guardDecision(exec('pwsh', { command }, duplicatePersistedCall, 'new-call')), undefined)
 assert.equal(guardDecision(exec('pwsh', { command }, repeated)), REPEAT_BLOCKED)
 assert.equal(guardDecision(exec('pwsh', { command }, repeated), { maxPostCheckCalls: 99 }), REPEAT_BLOCKED)
 

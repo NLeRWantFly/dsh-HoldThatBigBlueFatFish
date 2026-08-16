@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "agentRequests": 6,
+  "agentRequests": 7,
   "requestHeaders": 1,
   "schemaTransitions": 0,
   "platform": "win32",
@@ -21,13 +21,14 @@
     "read",
     "write"
   ],
-  "maxTokens": 16384,
+  "maxTokens": 8192,
   "reasoningEffort": "high",
   "emptyWorkspaceProbe": true,
   "fixedToolSchema": true,
   "oversizedMutationDenials": 1,
   "convergenceDenials": 1,
-  "systemSha256": "4a5313e078508ce0bd41e4a6dc3a3c09cd775a107347aae115b7265639a36806",
+  "environmentRetryStops": 1,
+  "systemSha256": "dc27b9503a08861ed1a9e49de6cf0259350a1afac2fe33422644632026139de0",
   "firstShellSchemaBytes": 1037,
   "laterShellSchemaBytes": 1037,
   "toolSchemaSha256": [

@@ -24,7 +24,7 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    text: "You are a helpful software engineer assistant.\nWork in small tested slices: build or fix only the next runnable piece, prefer real validation, label simulated checks as simulated, and stop when the relevant check passes with no concrete failure."
+    text: "You are a helpful software engineer assistant.\nWork only on the next runnable slice using existing evidence. Make one bounded change, run one relevant check, then finish. Never probe or repair the harness or toolchain. If PROGRESSIVE_FINAL_REQUIRED appears, stop tool use and report evidence and remaining risk."
     complete: true
     includeRuntimeContext: false
 - id: agent-instructions
@@ -59,8 +59,14 @@
     maxUnverifiedMutationChars: 24000
     maxMutationsPerStep: 2
     maxPostCheckCalls: 2
+    maxPostPassMutations: 1
+    maxPostPassDiagnostics: 2
+    maxCallsWithoutProgress: 16
+    maxEnvironmentFailuresPerCheck: 2
+    maxTotalToolCalls: 80
+    maxAssistantSteps: 64
     repeatLimit: 2
-    requestMaxTokens: 16384
+    requestMaxTokens: 8192
 
 - id: tool-bash
   name: '@deepseek-ai/dsh-tool-bash'

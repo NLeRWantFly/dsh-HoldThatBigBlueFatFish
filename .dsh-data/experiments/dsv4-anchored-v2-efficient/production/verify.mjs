@@ -33,7 +33,13 @@ for (const expected of [
   'maxMutationChars: 12000',
   'maxUnverifiedMutationChars: 24000',
   'maxPostCheckCalls: 2',
-  'requestMaxTokens: 16384',
+  'maxPostPassMutations: 1',
+  'maxPostPassDiagnostics: 2',
+  'maxCallsWithoutProgress: 16',
+  'maxEnvironmentFailuresPerCheck: 2',
+  'maxTotalToolCalls: 80',
+  'maxAssistantSteps: 64',
+  'requestMaxTokens: 8192',
 ]) assert(composition.includes(expected))
 assert.deepEqual(contents['progressive-guard.mjs'], await readFile(join(here, 'progressive-guard.mjs')))
 assert.deepEqual(contents['model-policy.mjs'], await readFile(join(here, 'model-policy.mjs')))
@@ -57,6 +63,8 @@ const result = {
     boundedRequestGeneration: true,
     semanticEvidenceCompatibility: true,
     convergenceGuard: true,
+    persistentStageBudgets: true,
+    environmentFailureIsolation: true,
     noCredentials: true,
     pluginCopyByteIdentical: true,
   },

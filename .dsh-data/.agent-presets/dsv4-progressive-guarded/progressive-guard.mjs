@@ -14,6 +14,12 @@ export const MUTATION_TOO_LARGE = 'PROGRESSIVE_MUTATION_TOO_LARGE: keep this fil
 export const SLICE_BUDGET = 'PROGRESSIVE_SLICE_BUDGET: run one relevant check before making another implementation slice.'
 export const STOP_AFTER_CHECK = 'PROGRESSIVE_STOP_AFTER_CHECK: the relevant check passed; make one directly justified fix or answer now.'
 export const REPEAT_BLOCKED = 'PROGRESSIVE_REPEAT_BLOCKED: change the code or choose a different diagnostic before repeating this command.'
+export const PROGRESS_REQUIRED = 'PROGRESSIVE_PROGRESS_REQUIRED: diagnostic budget exhausted; make one bounded code change, run one relevant check, or answer now.'
+export const RECHECK_REQUIRED = 'PROGRESSIVE_RECHECK_REQUIRED: a post-pass fix was made; rerun the relevant check or answer with the remaining risk.'
+export const ENVIRONMENT_BLOCKED = 'PROGRESSIVE_ENVIRONMENT_BLOCKED: this check is blocked by the execution environment. Do not repair the harness or repeat this check; record the evidence and continue only with a code-local action.'
+export const ENVIRONMENT_PROBE_BLOCKED = 'PROGRESSIVE_ENVIRONMENT_PROBE_BLOCKED: do not probe runtimes or executable locations; use the existing check result as environment evidence.'
+export const ENVIRONMENT_WORKAROUND_BLOCKED = 'PROGRESSIVE_ENVIRONMENT_WORKAROUND_BLOCKED: do not modify runtimes, dependency caches, or test infrastructure to bypass the execution environment.'
+export const FINAL_REQUIRED = 'PROGRESSIVE_FINAL_REQUIRED: the session tool budget is exhausted. Do not call another tool; answer now with changes, evidence, and remaining risk.'
 
 const BOOTSTRAP_SHELL_DESCRIPTION = 'Run one foreground, bounded workspace probe or check. For an empty project, list at most 50 immediate entries. Prefer read for known files. Do not inspect harness internals or compressed session logs.'
 
@@ -70,6 +76,32 @@ const INTERNAL_CONTEXT = [
 ]
 
 const INTERNAL_OR_BINARY_PATH = /(?:^|[\\/])(?:DSH_SESSION_JSONL|session[^\\/]*\.jsonl(?:\.(?:zst|zstd|gz|zip))?|objects[\\/][0-9a-f]{2}[\\/][0-9a-f]+)$/i
+
+const ENVIRONMENT_FAILURE = [
+  /^\s*\(no output\)\s*\r?\n\[exit code:\s*1\]\s*$/i,
+  /\[(?:sandbox:[^\]]*denied|timed out|timeout)\]/i,
+  /\b(?:EACCES|EPERM|PermissionError|WinError\s*5)\b/i,
+  /\b(?:Access is denied|Permission denied|operation not permitted)\b/i,
+  /\bspawn\b[^\r\n]*(?:EACCES|EPERM)/i,
+  /\b(?:command not found|is not recognized as an internal or external command)\b/i,
+  /\bno sandbox backend is usable\b/i,
+  /\bCreateRestrictedToken failed\b/i,
+]
+
+const ENVIRONMENT_WORKAROUND_PATH = /(?:^|\/)(?:\.pytool|\.venv[^/]*|node_modules)(?:\/|$)|(?:^|\/)(?:sitecustomize\.py|bootstrap[^/]*runtime[^/]*)$/i
+const ENVIRONMENT_WORKAROUND_SHELL = [
+  /\bpython(?:3|\.exe)?\s+-m\s+venv\b/i,
+  /\bvirtualenv\b/i,
+  /@agent-webui\/ai-desk-python\b/i,
+  /\b(?:--prefix|--target)\s+(?:\.\/)?(?:\.pytool|\.venv[^\s]*)\b/i,
+]
+
+const ENVIRONMENT_PROBE_SHELL = [
+  /^(?:python(?:3|\.exe)?|py|pytest|node|npm|pnpm|yarn|bun|cargo|go|dotnet|cmake|ctest)\s+--version\s*$/i,
+  /^(?:where(?:\.exe)?|which|command\s+-v|get-command)\b/i,
+  /^(?:python(?:3|\.exe)?|py(?:\s+-3)?)\s+-c\s+["']?\s*print\b/i,
+  /^(?:whoami|uname(?:\s+-a)?|date)\s*$/i,
+]
 
 function object(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -148,8 +180,24 @@ export function boundedShallowProbe(tool, command, maxEntries = 50) {
     || (/^(?:command\s+)?find\s+\./i.test(value) && /\s-maxdepth\s+1\b/.test(value))
 }
 
+function explicitSubdirectoryProbe(tool, command) {
+  const value = String(command ?? '').trim()
+  if (!value || /[\r\n;&|]/.test(value) || internalContextCommand(value)) return false
+  if (tool === 'bash') {
+    const match = value.match(/^(?:command\s+)?ls(?:\s+-[A-Za-z]+)?\s+['"]?((?!-)[^'"\s*?$]+)['"]?$/i)
+    if (match === null) return false
+    const path = match[1].replaceAll('\\', '/').replace(/\/+$/, '')
+    return path !== '.' && path !== '..' && path !== '/' && !/^[A-Za-z]:\//.test(path) && !path.startsWith('../')
+  }
+  if (tool !== 'pwsh') return false
+  const match = value.match(/^(?:get-childitem|gci)\b[^\r\n;&|]*-(?:literalpath|path)\s+['"]?([^'"\s*?$]+)['"]?[^\r\n;&|]*$/i)
+  if (match === null || /\b(?:-recurse|-depth\s+[1-9]\d*)\b/i.test(value)) return false
+  const path = match[1].replaceAll('\\', '/').replace(/\/+$/, '')
+  return path !== '.' && path !== '..' && path !== '/' && !path.startsWith('../')
+}
+
 function broadShellCommand(tool, command, maxEntries) {
-  if (boundedShallowProbe(tool, command, maxEntries)) return false
+  if (boundedShallowProbe(tool, command, maxEntries) || explicitSubdirectoryProbe(tool, command)) return false
   const listing = tool === 'pwsh'
     ? /(?:^|[;&|]\s*)(?:get-childitem|gci)\b/i.test(command)
     : tool === 'bash' && /(?:^|[;&|]\s*)(?:find|ls)\b/.test(command)
@@ -159,6 +207,29 @@ function broadShellCommand(tool, command, maxEntries) {
 function shellCheck(command) {
   return !BOOTSTRAP_MUTATION.some(pattern => pattern.test(command))
     && CHECK_SHELL.some(pattern => pattern.test(command))
+}
+
+function checkKey(command) {
+  const value = String(command ?? '').trim().replaceAll('\\', '/').replace(/\s+/g, ' ').toLowerCase()
+  if (/\btests\/run_public_tests\.py\b/.test(value)) return 'public-tests'
+  if (/\btools\/run_debug_probe\.py\b/.test(value)) return 'debug-probe'
+  if (/\btools\/run_espidf_(?:windows_)?build(?:\.py|\.ps1)?\b/.test(value)) return 'espidf-build'
+  return value
+}
+
+function environmentFailure(event) {
+  const text = resultText(event)
+  return ENVIRONMENT_FAILURE.some(pattern => pattern.test(text))
+}
+
+function runtimeFamily(command) {
+  const value = String(command ?? '').trim()
+  if (/^(?:python(?:3|\.exe)?|py(?:\s+-3)?|pytest)\b/i.test(value)) return 'python'
+  if (/^(?:node|npm|npx|pnpm|yarn|bun)\b/i.test(value)) return 'node'
+  if (/^(?:cargo|rustc)\b/i.test(value)) return 'rust'
+  if (/^go\b/i.test(value)) return 'go'
+  if (/^dotnet\b/i.test(value)) return 'dotnet'
+  return undefined
 }
 
 function qualifiedCallKind(event, config = {}) {
@@ -188,6 +259,11 @@ function pairedResults(events) {
     if (found !== undefined) pairs.push({ call: found.event, callIndex: found.index, result: event, resultIndex: index })
   }
   return pairs
+}
+
+function completedCheck(pair) {
+  return qualifiedCallKind(pair.call) === 'check'
+    && !/PROGRESSIVE_[A-Z_]+:/.test(resultText(pair.result))
 }
 
 export function hasQualifiedEvidence(events, config = {}) {
@@ -335,8 +411,10 @@ function assistantCallContext(events, callId) {
 function broadGlob(args) {
   const pattern = String(args?.pattern ?? '').trim().replaceAll('\\', '/')
   if (!pattern) return true
-  return pattern === '*' || pattern === '**' || pattern === '**/*'
-    || /(?:^|\/)\*\*\/\*(?:$|\/)/.test(pattern)
+  if (pattern === '*' || pattern === '**' || pattern === '**/*' || pattern.startsWith('**/')) return true
+  const recursiveAll = pattern.match(/^(.+)\/\*\*\/\*(?:$|\/)/)
+  if (recursiveAll === null) return false
+  return recursiveAll[1].split('/').filter(Boolean).length < 2
 }
 
 function broadGrep(args) {
@@ -353,6 +431,28 @@ function mutationCall(name, args) {
   return name === 'write' || name === 'edit' || shellContentWrite(name, args)
 }
 
+function mutationPath(name, args) {
+  return name === 'write' || name === 'edit' ? String(args?.file_path ?? '').trim().replaceAll('\\', '/') : ''
+}
+
+function environmentWorkaround(name, args) {
+  const path = mutationPath(name, args)
+  if (path && ENVIRONMENT_WORKAROUND_PATH.test(path)) return true
+  if (name !== 'bash' && name !== 'pwsh') return false
+  const command = String(args?.command ?? '')
+  return ENVIRONMENT_WORKAROUND_SHELL.some(pattern => pattern.test(command))
+}
+
+function environmentProbe(name, args) {
+  if (name === 'glob') {
+    const pattern = String(args?.pattern ?? '').trim().replaceAll('\\', '/')
+    return /(?:^|\/)(?:python(?:3|\.exe)?|\.venv|\.pytool|node_modules)(?:\/|$|\*)/i.test(pattern)
+  }
+  if (name !== 'bash' && name !== 'pwsh') return false
+  const command = String(args?.command ?? '').trim()
+  return ENVIRONMENT_PROBE_SHELL.some(pattern => pattern.test(command))
+}
+
 function mutationSize(name, args) {
   if (name === 'write') return String(args?.content ?? '').length
   if (name === 'edit') return String(args?.old_string ?? '').length + String(args?.new_string ?? '').length
@@ -364,9 +464,13 @@ function repeatedShell(events, exec, limit) {
   const command = String(exec.arguments?.command ?? '').trim().replace(/\s+/g, ' ')
   if (!command) return false
   let repeats = 0
+  const seen = new Set()
   for (let index = events.length - 1; index >= 0; index--) {
     const event = events[index]
     if (event?.type !== 'tool/call') continue
+    const callId = event.data?.callId
+    if (callId === exec.callId || seen.has(callId)) continue
+    seen.add(callId)
     const tool = String(event.data?.name ?? '')
     if (tool === 'edit' || tool === 'write') break
     if (tool !== exec.name) continue
@@ -380,9 +484,11 @@ function latestCheckPair(events) {
   return pairedResults(events).filter(pair => qualifiedCallKind(pair.call) === 'check').at(-1)
 }
 
-function successfulMutationCharsSinceCheck(events) {
+function mutationCharsSinceCheck(events) {
   const pairs = pairedResults(events)
-  const lastCheck = pairs.filter(pair => successfulResult(pair.result) && qualifiedCallKind(pair.call) === 'check').at(-1)
+  // A completed failing check is still useful evidence and opens the next repair
+  // slice. Guard denials do not: they contain no project evidence.
+  const lastCheck = pairs.filter(completedCheck).at(-1)
   const start = lastCheck?.resultIndex ?? -1
   return pairs
     .filter(pair => pair.resultIndex > start && successfulResult(pair.result))
@@ -391,6 +497,98 @@ function successfulMutationCharsSinceCheck(events) {
       const args = callArguments(pair.call)
       return total + (mutationCall(tool, args) ? mutationSize(tool, args) : 0)
     }, 0)
+}
+
+function priorToolCallCount(events, context, currentCallId) {
+  const ids = new Set()
+  for (const event of events) {
+    if (event?.type !== 'tool/call') continue
+    const callId = event.data?.callId
+    if (callId !== currentCallId) ids.add(callId ?? `seq:${event.seq}`)
+  }
+  for (const block of priorBatchCalls(context)) {
+    if (block?.id !== currentCallId) ids.add(block?.id ?? `batch:${ids.size}`)
+  }
+  return ids.size
+}
+
+function assistantMessageCount(events) {
+  return events.filter(event => event?.type === 'assistant/message').length
+}
+
+function latestProgressIndex(events) {
+  let latest = -1
+  for (const pair of pairedResults(events)) {
+    const tool = String(pair.call.data?.name ?? '')
+    const args = callArguments(pair.call)
+    if (completedCheck(pair) || (successfulResult(pair.result) && mutationCall(tool, args))) latest = pair.resultIndex
+  }
+  return latest
+}
+
+function callsWithoutProgress(events, context) {
+  const start = latestProgressIndex(events)
+  const end = context?.eventIndex ?? events.length
+  const historical = pairedResults(events).filter(pair => pair.callIndex > start
+    && pair.callIndex < end
+    && !/(?:PROGRESSIVE_[A-Z_]+|PORTABLE_BASH_REJECTED):/.test(resultText(pair.result))).length
+  return historical + priorBatchCalls(context).length
+}
+
+function environmentFailuresForCheck(events, command) {
+  const key = checkKey(command)
+  return pairedResults(events).filter(pair => {
+    if (!completedCheck(pair) || !environmentFailure(pair.result)) return false
+    return checkKey(callArguments(pair.call).command) === key
+  }).length
+}
+
+function environmentFailuresForRuntime(events, command) {
+  const family = runtimeFamily(command)
+  if (family === undefined) return 0
+  return pairedResults(events).filter(pair => {
+    if (!completedCheck(pair) || !environmentFailure(pair.result)) return false
+    return runtimeFamily(callArguments(pair.call).command) === family
+  }).length
+}
+
+function latestCompletedCheck(events) {
+  return pairedResults(events).filter(completedCheck).at(-1)
+}
+
+function successfulMutationsAfter(events, resultIndex) {
+  return pairedResults(events).filter(pair => {
+    if (pair.resultIndex <= resultIndex || !successfulResult(pair.result)) return false
+    const tool = String(pair.call.data?.name ?? '')
+    return mutationCall(tool, callArguments(pair.call))
+  })
+}
+
+function callsAfterIndex(events, context, index, predicate = () => true) {
+  const end = context?.eventIndex ?? events.length
+  const historical = events.slice(index + 1, end)
+    .filter(event => event?.type === 'tool/call')
+    .filter(event => predicate(String(event.data?.name ?? ''), callArguments(event)))
+    .length
+  const batched = priorBatchCalls(context)
+    .filter(block => predicate(String(block.name ?? ''), blockArguments(block)))
+    .length
+  return historical + batched
+}
+
+export function workflowStage(events, config = {}) {
+  const pairs = pairedResults(events ?? [])
+  const totalLimit = Number.isInteger(config.maxTotalToolCalls) ? config.maxTotalToolCalls : 80
+  const stepLimit = Number.isInteger(config.maxAssistantSteps) ? config.maxAssistantSteps : 64
+  const totalCalls = (events ?? []).filter(event => event?.type === 'tool/call').length
+  if (totalCalls >= totalLimit || assistantMessageCount(events ?? []) > stepLimit) return 'final'
+  const latestCheck = pairs.filter(completedCheck).at(-1)
+  if (latestCheck !== undefined && successfulResult(latestCheck.result)) {
+    return successfulMutationsAfter(events, latestCheck.resultIndex).length > 0 ? 'recheck' : 'acceptance'
+  }
+  if (pairs.some(pair => successfulResult(pair.result)
+    && mutationCall(String(pair.call.data?.name ?? ''), callArguments(pair.call)))) return 'implementation'
+  return 'discovery'
 }
 
 function priorBatchCalls(context) {
@@ -444,6 +642,25 @@ export function guardDecision(exec, config = {}) {
   const tool = String(exec.name ?? '')
   const args = object(exec.arguments) ? exec.arguments : parseArguments(exec.arguments)
   const command = String(args.command ?? '')
+
+  const maxTotalToolCalls = Number.isInteger(config.maxTotalToolCalls) ? config.maxTotalToolCalls : 80
+  const maxAssistantSteps = Number.isInteger(config.maxAssistantSteps) ? config.maxAssistantSteps : 64
+  if (priorToolCallCount(events, context, exec.callId) >= maxTotalToolCalls
+    || assistantMessageCount(events) > maxAssistantSteps) return FINAL_REQUIRED
+
+  if (environmentWorkaround(tool, args)) return ENVIRONMENT_WORKAROUND_BLOCKED
+  if (environmentProbe(tool, args)) return ENVIRONMENT_PROBE_BLOCKED
+
+  const check = (tool === 'bash' || tool === 'pwsh') && shellCheck(command)
+  const environmentFailureLimit = Number.isInteger(config.maxEnvironmentFailuresPerCheck)
+    ? config.maxEnvironmentFailuresPerCheck
+    : 2
+  if (check && (environmentFailuresForCheck(events, command) >= environmentFailureLimit
+    || environmentFailuresForRuntime(events, command) >= environmentFailureLimit)) return ENVIRONMENT_BLOCKED
+
+  const mutation = mutationCall(tool, args)
+  const maxCallsWithoutProgress = Number.isInteger(config.maxCallsWithoutProgress) ? config.maxCallsWithoutProgress : 16
+  if (!mutation && !check && callsWithoutProgress(events, context) >= maxCallsWithoutProgress) return PROGRESS_REQUIRED
   if (config.blockInternalContext !== false && (tool === 'bash' || tool === 'pwsh') && internalContextCommand(command)) {
     return INTERNAL_CONTEXT_BLOCKED
   }
@@ -469,7 +686,6 @@ export function guardDecision(exec, config = {}) {
     return SHELL_CONTENT_WRITE_BLOCKED
   }
 
-  const mutation = mutationCall(tool, args)
   if (promoted && mutation) {
     const maxMutationChars = Number.isInteger(config.maxMutationChars) ? config.maxMutationChars : 12_000
     const maxUnverifiedChars = Number.isInteger(config.maxUnverifiedMutationChars) ? config.maxUnverifiedMutationChars : 24_000
@@ -478,7 +694,22 @@ export function guardDecision(exec, config = {}) {
     const size = mutationSize(tool, args)
     if (size > maxMutationChars) return MUTATION_TOO_LARGE
     if (batch.calls >= maxMutations) return SLICE_BUDGET
-    if (successfulMutationCharsSinceCheck(events) + batch.chars + size > maxUnverifiedChars) return SLICE_BUDGET
+    if (mutationCharsSinceCheck(events) + batch.chars + size > maxUnverifiedChars) return SLICE_BUDGET
+  }
+
+  const latestCompleted = latestCompletedCheck(events)
+  if (promoted && latestCompleted !== undefined && successfulResult(latestCompleted.result)) {
+    const laterMutations = successfulMutationsAfter(events, latestCompleted.resultIndex)
+    const maxPostPassMutations = Number.isInteger(config.maxPostPassMutations) ? config.maxPostPassMutations : 1
+    if (mutation && laterMutations.length >= maxPostPassMutations) return RECHECK_REQUIRED
+    if (!mutation && !check && laterMutations.length > 0) {
+      const lastMutationIndex = laterMutations.at(-1).resultIndex
+      const maxDiagnostics = Number.isInteger(config.maxPostPassDiagnostics) ? config.maxPostPassDiagnostics : 2
+      if (callsAfterIndex(events, context, lastMutationIndex, (name, callArgs) => {
+        const callCommand = String(callArgs.command ?? '')
+        return !mutationCall(name, callArgs) && !((name === 'bash' || name === 'pwsh') && shellCheck(callCommand))
+      }) >= maxDiagnostics) return RECHECK_REQUIRED
+    }
   }
 
   if (promoted && !mutation) {

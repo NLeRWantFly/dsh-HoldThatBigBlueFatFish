@@ -46,8 +46,14 @@ function composition(standard) {
     maxUnverifiedMutationChars: 24000
     maxMutationsPerStep: 2
     maxPostCheckCalls: 2
+    maxPostPassMutations: 1
+    maxPostPassDiagnostics: 2
+    maxCallsWithoutProgress: 16
+    maxEnvironmentFailuresPerCheck: 2
+    maxTotalToolCalls: 80
+    maxAssistantSteps: 64
     repeatLimit: 2
-    requestMaxTokens: 16384
+    requestMaxTokens: 8192
 `
   const portableBash = `
 # Windows keeps DSH's native pwsh executor and ACL sandbox. This agent-local
