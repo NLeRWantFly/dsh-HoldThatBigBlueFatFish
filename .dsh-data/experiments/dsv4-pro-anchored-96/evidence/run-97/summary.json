@@ -1,0 +1,44 @@
+{
+  "runId": "run-win-2026-08-16_04-54-08-394",
+  "route": {
+    "provider": "opencode-go",
+    "model": "deepseek-v4-pro",
+    "reasoningEffort": "max"
+  },
+  "endpoint": "opencode-go",
+  "modeltestCommit": "04255b55f16c4439e538239fb9783070c4165081",
+  "qualityComparable": true,
+  "rows": [
+    {
+      "condition": "pro-anchored-96",
+      "completed": true,
+      "scoreStatus": "complete",
+      "ability": 97,
+      "ship": 97,
+      "releaseClass": "B+",
+      "blockers": [
+        "E-contract"
+      ],
+      "requests": 148,
+      "toolCalls": 231,
+      "reasoningTokens": null,
+      "outputTokens": 126369,
+      "inputTokens": 33241626,
+      "cacheHitRate": 0.993384,
+      "estimatedCostUsd": 0.32531423,
+      "firstSystemChars": 46,
+      "firstToolNames": [
+        "pwsh",
+        "read"
+      ],
+      "firstReasoningChars": 129,
+      "firstToolCalls": 4,
+      "firstBreadth": 3,
+      "schemaStates": 2,
+      "maxTokensSeen": [
+        null
+      ],
+      "budgetStop": null
+    }
+  ]
+}

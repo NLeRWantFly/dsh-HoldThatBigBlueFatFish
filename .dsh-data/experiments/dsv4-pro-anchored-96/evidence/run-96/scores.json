@@ -1,0 +1,345 @@
+[
+  {
+    "allSystemSha256": [
+      "5fab6e32f283d71510531ce850df2690b8fb77437d36bfabbe8c4ac862f19df9"
+    ],
+    "condition": "pro-anchored-96",
+    "cost": {
+      "currency": "USD",
+      "estimated": 0.3695207,
+      "pricing": {
+        "cacheHitInput": 0.003625,
+        "cacheMissInput": 0.435,
+        "capturedOn": "2026-08-15",
+        "currency": "USD",
+        "model": "deepseek-v4-pro",
+        "output": 0.87,
+        "source": "https://api-docs.deepseek.com/quick_start/pricing",
+        "unitTokens": 1000000
+      }
+    },
+    "eventFile": "conditions/pro-anchored-96/events.jsonl",
+    "firstBreadth": 2,
+    "firstCompliant": false,
+    "firstHeaderSha256": "68dac8a0f88d605a8468eb8530ffd46feca217d8ef79286264764506abe78a5b",
+    "firstNarrationCharsBeforeAction": 251,
+    "firstParallelFanout": 2,
+    "firstReasoningChars": 251,
+    "firstSystem": "You are a helpful software engineer assistant.",
+    "firstSystemChars": 46,
+    "firstSystemSha256": "5fab6e32f283d71510531ce850df2690b8fb77437d36bfabbe8c4ac862f19df9",
+    "firstTextChars": 0,
+    "firstThree": [
+      {
+        "headerSha256": "68dac8a0f88d605a8468eb8530ffd46feca217d8ef79286264764506abe78a5b",
+        "index": 1,
+        "reasoning": "We need start by exploring workspace. Need read ONBOARDING_TODO.md, reference, project README, structure. Also mandatory run tests and probe before code changes. We need operate in Chinese likely. We'll use pwsh/read tools. Let's first list workspace.",
+        "reasoningBlocks": [
+          "We need start by exploring workspace. Need read ONBOARDING_TODO.md, reference, project README, structure. Also mandatory run tests and probe before code changes. We need operate in Chinese likely. We'll use pwsh/read tools. Let's first list workspace."
+        ],
+        "seq": 167,
+        "step": 1,
+        "system": "You are a helpful software engineer assistant.",
+        "systemSha256": "5fab6e32f283d71510531ce850df2690b8fb77437d36bfabbe8c4ac862f19df9",
+        "text": "",
+        "textBlocks": [],
+        "toolCalls": [
+          {
+            "arguments": {
+              "command": "Get-ChildItem -Force | Select-Object Mode,Length,Name | Format-Table -AutoSize",
+              "description": "List workspace root contents"
+            },
+            "id": "call_00_fKwWIbjXjuXQ5FM53nJE6368",
+            "name": "pwsh"
+          },
+          {
+            "arguments": {
+              "command": "Get-ChildItem -Recurse -Depth 2 -Force | Select-Object FullName,Length | Format-Table -AutoSize",
+              "description": "List workspace tree depth two"
+            },
+            "id": "call_01_vHYVw1Yiuqooobcc4FPZ7471",
+            "name": "pwsh"
+          }
+        ],
+        "toolNames": [
+          "pwsh",
+          "read"
+        ],
+        "toolSchemaSha256": "ce0194bea982c46bf3acdaf09354e966fd5be990bc72c302b98ced47971b5a4c",
+        "turn": 1,
+        "usage": {
+          "cacheReadTokens": 1920,
+          "inputTokens": 94,
+          "outputTokens": 218
+        }
+      },
+      {
+        "headerSha256": "6a22aaaa17e6db08a81465ebfb0c920df1e2686e2c31901356c75aeb1073f902",
+        "index": 2,
+        "reasoning": "Output truncated paths due width. Let's get directory listings succinctly with relative names.",
+        "reasoningBlocks": [
+          "Output truncated paths due width. Let's get directory listings succinctly with relative names."
+        ],
+        "seq": 326,
+        "step": 2,
+        "system": "You are a helpful software engineer assistant.",
+        "systemSha256": "5fab6e32f283d71510531ce850df2690b8fb77437d36bfabbe8c4ac862f19df9",
+        "text": "",
+        "textBlocks": [],
+        "toolCalls": [
+          {
+            "arguments": {
+              "command": "Get-ChildItem project2_task -Recurse -Force -File | ForEach-Object { $_.FullName.Substring((Get-Location).Path.Length+1) } | Sort-Object",
+              "description": "List project files relative paths"
+            },
+            "id": "call_00_YN3coZEjcWEHMzRnrVcu0550",
+            "name": "pwsh"
+          },
+          {
+            "arguments": {
+              "command": "Get-ChildItem reference,tests,tools -Recurse -Force -File | ForEach-Object { $_.FullName.Substring((Get-Location).Path.Length+1) } | Sort-Object",
+              "description": "List reference tests tools files"
+            },
+            "id": "call_01_9gFyCpcbXFAnn1zoymkI7267",
+            "name": "pwsh"
+          }
+        ],
+        "toolNames": [
+          "ask_user_question",
+          "create_goal",
+          "edit",
+          "exit_plan_mode",
+          "get_goal",
+          "glob",
+          "grep",
+          "interrupt_agent",
+          "job_kill",
+          "job_list",
+          "job_output",
+          "list_agents",
+          "pwsh",
+          "ralph",
+          "read",
+          "read_image",
+          "send_message",
+          "skill",
+          "subagent",
+          "subagent_fork",
+          "todo_write",
+          "update_goal",
+          "web_search",
+          "workflow",
+          "write"
+        ],
+        "toolSchemaSha256": "56761b419a0089a7240f6670bb42c010fb14e80660e696246fbdb9c4e7fe0ca9",
+        "turn": 1,
+        "usage": {
+          "cacheReadTokens": 640,
+          "inputTokens": 11291,
+          "outputTokens": 213
+        }
+      },
+      {
+        "headerSha256": "6a22aaaa17e6db08a81465ebfb0c920df1e2686e2c31901356c75aeb1073f902",
+        "index": 3,
+        "reasoning": "Need read onboarding todo, reference docs, READMEs. Let's read all key docs in parallel.",
+        "reasoningBlocks": [
+          "Need read onboarding todo, reference docs, READMEs. Let's read all key docs in parallel."
+        ],
+        "seq": 453,
+        "step": 3,
+        "system": "You are a helpful software engineer assistant.",
+        "systemSha256": "5fab6e32f283d71510531ce850df2690b8fb77437d36bfabbe8c4ac862f19df9",
+        "text": "",
+        "textBlocks": [],
+        "toolCalls": [
+          {
+            "arguments": {
+              "file_path": "ONBOARDING_TODO.md"
+            },
+            "id": "call_00_OPGnlOE1zpCAJscLQckh7447",
+            "name": "read"
+          },
+          {
+            "arguments": {
+              "file_path": "project2_task/README.md"
+            },
+            "id": "call_01_Xb3bKDATZyAhwMtSu0yi3532",
+            "name": "read"
+          },
+          {
+            "arguments": {
+              "file_path": "reference/api_contracts.md"
+            },
+            "id": "call_02_wOqfK6qf7ASRgRTL94S88322",
+            "name": "read"
+          },
+          {
+            "arguments": {
+              "file_path": "reference/architecture_notes.md"
+            },
+            "id": "call_03_xkNtoWRTWIygSkvR2WwH1773",
+            "name": "read"
+          },
+          {
+            "arguments": {
+              "file_path": "reference/espidf_protocol_contract.md"
+            },
+            "id": "call_04_NlV5ZptwWy4pr3lUMk350032",
+            "name": "read"
+          }
+        ],
+        "toolNames": [
+          "ask_user_question",
+          "create_goal",
+          "edit",
+          "exit_plan_mode",
+          "get_goal",
+          "glob",
+          "grep",
+          "interrupt_agent",
+          "job_kill",
+          "job_list",
+          "job_output",
+          "list_agents",
+          "pwsh",
+          "ralph",
+          "read",
+          "read_image",
+          "send_message",
+          "skill",
+          "subagent",
+          "subagent_fork",
+          "todo_write",
+          "update_goal",
+          "web_search",
+          "workflow",
+          "write"
+        ],
+        "toolSchemaSha256": "56761b419a0089a7240f6670bb42c010fb14e80660e696246fbdb9c4e7fe0ca9",
+        "turn": 1,
+        "usage": {
+          "cacheReadTokens": 12032,
+          "inputTokens": 6375,
+          "outputTokens": 215
+        }
+      }
+    ],
+    "firstToolCallCount": 2,
+    "firstToolCalls": [
+      {
+        "arguments": {
+          "command": "Get-ChildItem -Force | Select-Object Mode,Length,Name | Format-Table -AutoSize",
+          "description": "List workspace root contents"
+        },
+        "id": "call_00_fKwWIbjXjuXQ5FM53nJE6368",
+        "name": "pwsh"
+      },
+      {
+        "arguments": {
+          "command": "Get-ChildItem -Recurse -Depth 2 -Force | Select-Object FullName,Length | Format-Table -AutoSize",
+          "description": "List workspace tree depth two"
+        },
+        "id": "call_01_vHYVw1Yiuqooobcc4FPZ7471",
+        "name": "pwsh"
+      }
+    ],
+    "firstToolCount": 2,
+    "firstToolNames": [
+      "pwsh",
+      "read"
+    ],
+    "firstToolSchemaSha256": "ce0194bea982c46bf3acdaf09354e966fd5be990bc72c302b98ced47971b5a4c",
+    "harnessIdentityPresent": false,
+    "id": "pro-anchored-96",
+    "markerCounts": {
+      "explore": 1,
+      "let me": 0,
+      "let's": 1,
+      "systematically": 0,
+      "先了解": 0,
+      "先系统": 0,
+      "系统性": 0,
+      "遍历": 0
+    },
+    "minimalSystemExact": true,
+    "platform": "windows-native",
+    "promotion": {
+      "durableToolCallSeen": true,
+      "firstToolCallSeq": 168,
+      "outsideBootstrapToolsUsed": [
+        "write",
+        "job_output",
+        "todo_write",
+        "edit",
+        "grep"
+      ],
+      "promotedOnFollowingRequest": true,
+      "promotedToolCount": 25,
+      "promotedToolSchemaSha256": "56761b419a0089a7240f6670bb42c010fb14e80660e696246fbdb9c4e7fe0ca9",
+      "promotionHeaderSeq": 174,
+      "systemStayedMinimal": true
+    },
+    "prompt": "你正在接手一个本地护理/睡眠联调工程（Project2），工作区仅限当前可见的 workspace 目录。\n里面有真实开发遗留的 bug，也有交接文档要求补完的功能。请把项目修到可提测状态。\n\n【可见范围】\n- 只依赖 workspace 内内容：ONBOARDING_TODO.md、reference/、tests/public/、tools/、project2_task/\n- 不要读取、搜索或依赖 workspace 之外的目录（不要碰 evaluator、docs、archives 等）\n\n【必须流程】\n1. 先阅读 ONBOARDING_TODO.md、reference/、项目 README、已有代码结构\n2. 开始改代码前，必须先运行并阅读：\n   python tests\\run_public_tests.py project2_task\n   python tools\\run_debug_probe.py project2_task\n3. 根据诊断结果修复；改完再跑上述两条；需要时继续迭代\n4. ESP32-S3（esp32/testpro4）是必做：按 reference/espidf_protocol_contract.md 修复 Wi-Fi+MQTT/协议/NVS 等\n5. 环境支持则运行：\n   python tools\\run_espidf_build.py project2_task\n   （或 tools 下的 Windows 编译脚本）至少跑到明确成功或明确失败点，并如实记录\n6. 最后把：初始诊断、修改说明、最终验证、ESP 编译/失败情况、未验证风险\n   写入 project2_task/PULL_REQUEST_TEMPLATE.md（不要留「待填写」空模板）\n\n【硬性约束】\n- 不要通过删功能、硬编码测试数据、降低安全要求、跳过旧 API、修改 tests/ 或 tools/ 诊断脚本来绕过问题\n- 保持模块边界，不要把所有逻辑塞回单一文件\n- 管理员密码不可明文；Cookie 只存随机 token；注意 session/context 权限与患者数据零泄漏\n- 历史 SQLite 可能缺列，初始化要能迁移并尽量保留旧数据\n- 睡眠 CSV 可能混合有/无 room-bed 的行，按行策略处理\n- 收紧鉴权后，检查 voice/本地助手是否仍能正确带会话取上下文（不要靠静默 ambient session 漏数据）\n\n【输出】\n- 直接开始修改，不要只给建议\n- 最终用简短总结：改了什么、验证了什么、还有什么风险\n- 不要调用 subagent",
+    "promptSha256": "aae0cfddc59474ec5ff52858a47e9949ba9ee5352ea45ea3b7bfb29a99732747",
+    "repeat": 1,
+    "requestCount": 184,
+    "requestHeaderCount": 2,
+    "responseMs": 5400,
+    "route": {
+      "model": "deepseek-v4-pro",
+      "provider": "opencode-go",
+      "reasoningEffort": "max"
+    },
+    "runtimeContextMessages": 0,
+    "sessionId": "router-compare-pro-anchored-96-run-win-2026-08-16_04-05-25-418",
+    "suite": "modeltest-project2-v4.1b",
+    "ttftMs": 3728,
+    "turnEndReason": {
+      "kind": "completed"
+    },
+    "usage": {
+      "cacheReadTokens": 46688384,
+      "inputTokens": 257899,
+      "outputTokens": 101252
+    },
+    "tools": {
+      "total": 220,
+      "byName": {
+        "pwsh": 54,
+        "read": 62,
+        "write": 19,
+        "job_output": 10,
+        "todo_write": 2,
+        "edit": 65,
+        "grep": 8
+      },
+      "guardDenials": 0
+    },
+    "cache": {
+      "cacheHitInputTokens": 46688384,
+      "cacheMissInputTokens": 257899,
+      "totalInputTokens": 46946283,
+      "hitRate": 0.994507
+    },
+    "budgetStop": null,
+    "completed": true,
+    "schemaHashes": [
+      "ce0194bea982c46bf3acdaf09354e966fd5be990bc72c302b98ced47971b5a4c",
+      "56761b419a0089a7240f6670bb42c010fb14e80660e696246fbdb9c4e7fe0ca9"
+    ],
+    "allRequestToolSchemaHashes": [
+      "ce0194bea982c46bf3acdaf09354e966fd5be990bc72c302b98ced47971b5a4c",
+      "56761b419a0089a7240f6670bb42c010fb14e80660e696246fbdb9c4e7fe0ca9"
+    ],
+    "allRequestSystemHashes": [
+      "5fab6e32f283d71510531ce850df2690b8fb77437d36bfabbe8c4ac862f19df9"
+    ],
+    "maxTokensSeen": [
+      null
+    ],
+    "reasoningEffortSeen": [
+      "max"
+    ]
+  }
+]

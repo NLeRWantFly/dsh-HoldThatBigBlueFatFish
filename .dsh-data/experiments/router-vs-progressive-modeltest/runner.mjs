@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import { cp, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import { homedir } from 'node:os'
-import { dirname, join, relative, resolve } from 'node:path'
+import { delimiter, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -19,20 +19,37 @@ const routerSource = resolve(process.env.ROUTER_SOURCE
   ?? join(comparisonWorkspace, 'dsh-router-standard'))
 const progressiveSource = resolve(process.env.PROGRESSIVE_SOURCE
   ?? join(here, '..', 'dsv4-anchored-v2-efficient', 'production'))
+const anchoredSource = resolve(process.env.ANCHORED_96_SOURCE
+  ?? join(here, '..', 'dsv4-pro-anchored-96'))
+const espIdfActivationScript = process.env.DSH_EVAL_ESP_IDF_ACTIVATION_SCRIPT === undefined
+  ? undefined
+  : resolve(process.env.DSH_EVAL_ESP_IDF_ACTIVATION_SCRIPT)
 const python = resolve(process.env.DSH_EVAL_PYTHON
   ?? join(homedir(), '.cache', 'codex-runtimes', 'codex-primary-runtime', 'dependencies', 'python', 'python.exe'))
 const route = Object.freeze({
-  provider: 'deepseek-official',
-  model: 'deepseek-v4-pro',
-  reasoningEffort: 'max',
+  provider: process.env.DSH_EVAL_PROVIDER ?? 'deepseek-official',
+  model: process.env.DSH_EVAL_MODEL ?? 'deepseek-v4-pro',
+  reasoningEffort: process.env.DSH_EVAL_REASONING_EFFORT ?? 'max',
 })
+const credentialRef = process.env.DSH_EVAL_CREDENTIAL_REF
+  ?? (route.provider === 'opencode-go' ? 'OPENCODE_GO_API_KEY' : 'DEEPSEEK_API_KEY')
+const endpointProduct = process.env.DSH_EVAL_ENDPOINT_PRODUCT
+  ?? (route.provider === 'opencode-go' ? 'opencode-go-subscription' : 'deepseek-api')
+const endpointLabel = process.env.DSH_EVAL_ENDPOINT
+  ?? (route.provider === 'opencode-go' ? 'opencode-go' : 'https://api.deepseek.com')
 const conditions = Object.freeze([
   { id: 'router-standard', preset: 'dsh-router-standard', harness: 'dsh-router-standard' },
   { id: 'progressive-guarded', preset: 'dsv4-progressive-guarded', harness: 'dsh-progressive-guarded-v0.2' },
+  { id: 'pro-anchored-96', preset: 'dsv4-pro-anchored-96', harness: 'dsh-pro-anchored-96' },
 ])
-const requestLimit = 320
-const outputTokenLimit = 384_000
-const timeoutMs = 4 * 60 * 60 * 1000
+function positiveIntegerEnv(name, fallback) {
+  const value = Number.parseInt(process.env[name] ?? '', 10)
+  return Number.isInteger(value) && value > 0 ? value : fallback
+}
+
+const requestLimit = positiveIntegerEnv('DSH_EVAL_REQUEST_LIMIT', 320)
+const outputTokenLimit = positiveIntegerEnv('DSH_EVAL_OUTPUT_TOKEN_LIMIT', 384_000)
+const timeoutMs = positiveIntegerEnv('DSH_EVAL_TIMEOUT_MS', 4 * 60 * 60 * 1000)
 
 function option(name) {
   const index = process.argv.indexOf(name)
@@ -123,7 +140,7 @@ function outputTokens(events) {
 async function runSession({ rpc, history, condition, cwd, prompt, runId }) {
   const sessionId = `router-compare-${condition.id}-${runId}`
   await rpc('session.create', { sessionId, cwd, agentPreset: condition.preset })
-  await rpc('session.rename', { sessionId, title: `Modeltest ${condition.id} official max` })
+  await rpc('session.rename', { sessionId, title: `Modeltest ${condition.id} ${route.provider} ${route.reasoningEffort}` })
   const selection = await rpc('session.selectModel', { sessionId, ...route })
   if (selection.selected?.provider !== route.provider
     || selection.selected?.model !== route.model
@@ -217,11 +234,11 @@ async function evaluate({ condition, control, candidateProject, runDir, score, i
     '--harness', condition.harness,
     '--require-meta',
     '--include-espidf-build',
-    '--run-group-id', 'router-vs-progressive-win-official-max',
+    '--run-group-id', `progressive-production-win-${route.provider}-${route.reasoningEffort}`,
     '--run-index', String(index + 1),
     '--thinking-level', route.reasoningEffort,
     '--provider', route.provider,
-    '--endpoint-product', 'deepseek-api',
+    '--endpoint-product', endpointProduct,
     '--meta-extra', metaExtra,
   ], { cwd: control, allowFailure: true })
   await writeFile(join(conditionDir, 'evaluator.stdout.log'), result.stdout, 'utf8')
@@ -255,14 +272,19 @@ async function buildRuntime({ port, runDir }) {
   const baseUrl = `http://127.0.0.1:${port}`
   let stderr = ''
   let stdout = ''
+  const childEnv = {
+    ...process.env,
+    DSH_HOME: dshHome,
+    DEEPSEEK_BASE_URL: 'https://api.deepseek.com',
+    PYTHONUTF8: '1',
+    PYTHONIOENCODING: 'utf-8',
+  }
+  const pathKey = Object.keys(childEnv).find(key => key.toUpperCase() === 'PATH') ?? 'PATH'
+  childEnv[pathKey] = [dirname(python), childEnv[pathKey]].filter(Boolean).join(delimiter)
   const child = spawn(process.execPath, [join(sourceRoot, 'apps', 'cli', 'lib', 'bin.js'), 'web', '--host', '127.0.0.1', '--port', String(port)], {
     cwd: sourceRoot,
     windowsHide: true,
-    env: {
-      ...process.env,
-      DSH_HOME: dshHome,
-      DEEPSEEK_BASE_URL: 'https://api.deepseek.com',
-    },
+    env: childEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   child.stdout.on('data', chunk => { stdout = `${stdout}${chunk}`.slice(-1_000_000) })
@@ -300,9 +322,9 @@ async function buildRuntime({ port, runDir }) {
     await new Promise(resolveWait => setTimeout(resolveWait, 200))
   }
 
-  const credential = await rpc('credentials.describe', { refs: ['DEEPSEEK_API_KEY'] })
-  if (credential?.credentials?.DEEPSEEK_API_KEY?.configured !== true) {
-    throw new Error('DeepSeek credential is not configured in the DSH credential service')
+  const credential = await rpc('credentials.describe', { refs: [credentialRef] })
+  if (credential?.credentials?.[credentialRef]?.configured !== true) {
+    throw new Error(`${credentialRef} is not configured in the DSH credential service`)
   }
   const presets = await rpc('agentPreset.list', {}).catch(() => null)
 
@@ -362,7 +384,7 @@ async function buildRuntime({ port, runDir }) {
 
 async function live() {
   if (!(await credentialDocumentExists())) throw new Error('The configured DSH credential document is absent')
-  for (const path of [sourceRoot, modeltestSource, routerSource, progressiveSource, python]) {
+  for (const path of [sourceRoot, modeltestSource, routerSource, progressiveSource, anchoredSource, python, espIdfActivationScript].filter(Boolean)) {
     if (!(await exists(path))) throw new Error(`required path missing: ${path}`)
   }
   const requestedCondition = option('--condition')
@@ -390,6 +412,7 @@ async function live() {
   process.env.DSH_SOURCE_ROOT = sourceRoot
   process.env.DSH_EVAL_MODELTEST = control
   process.env.DSH_EVAL_PYTHON = python
+  if (espIdfActivationScript !== undefined) process.env.ESP_IDF_ACTIVATION_SCRIPT = espIdfActivationScript
   const lib = await import('../dsv4-anchored-official/lib.mjs')
 
   const manifest = {
@@ -398,10 +421,16 @@ async function live() {
     generatedAt: new Date().toISOString(),
     order: selectedConditions.map(condition => condition.id),
     route,
-    endpoint: 'https://api.deepseek.com',
+    endpoint: endpointLabel,
+    endpointProduct,
     platform: 'windows-native',
     tokenBudget: { requestLimitPerCondition: requestLimit, outputTokenLimitPerCondition: outputTokenLimit },
     credentials: { source: 'DSH credential service', valueInspected: false, persisted: false },
+    espIdf: espIdfActivationScript === undefined ? null : {
+      backend: 'docker-activation',
+      activationScript: relative(comparisonWorkspace, espIdfActivationScript).replaceAll('\\', '/'),
+      image: process.env.DSV4_ESP_IDF_DOCKER_IMAGE ?? 'espressif/idf:v6.0.1',
+    },
     commits: {
       modeltest: modeltestCommit,
       router: await gitHead(routerSource),
@@ -413,6 +442,7 @@ async function live() {
       routerBootstrap: await lib.sha256File(join(routerSource, 'preset', 'router-bootstrap.mjs')),
       routerCore: await lib.sha256File(join(routerSource, 'preset', 'router-core.mjs')),
       progressiveGuard: await lib.sha256File(join(progressiveSource, 'progressive-guard.mjs')),
+      anchored96: await lib.sha256File(join(anchoredSource, 'anchored-tools.mjs')),
     },
     samples: [],
     failures: [],
@@ -424,7 +454,7 @@ async function live() {
   const runtime = await buildRuntime({ port, runDir })
   try {
     for (const [index, condition] of selectedConditions.entries()) {
-      process.stdout.write(`[start] ${condition.id} official deepseek-v4-pro max\n`)
+      process.stdout.write(`[start] ${condition.id} ${route.provider}/${route.model} ${route.reasoningEffort}\n`)
       const workspace = await prepareHandoff(condition, control, runtimeRoot)
       const record = {
         id: condition.id,
@@ -446,6 +476,22 @@ async function live() {
         record.terminalReason = result.events.findLast(event => event.type === 'turn/end')?.data?.reason ?? null
         record.completed = record.terminalReason?.kind === 'completed'
         await lib.writeEvents(join(runDir, record.eventFile), result.events)
+        const assistantMessages = result.events.filter(event => event.type === 'assistant/message')
+        if (assistantMessages.length === 0) {
+          const failure = record.terminalReason?.error
+          manifest.samples.push(record)
+          manifest.failures.push({
+            id: condition.id,
+            at: new Date().toISOString(),
+            stage: 'model-request',
+            error: failure === undefined
+              ? 'turn ended before the first assistant/message'
+              : `${failure.code ?? 'MODEL_ERROR'}: ${failure.message ?? JSON.stringify(failure)}`,
+          })
+          await writeJson(join(runDir, 'manifest.json'), manifest)
+          process.stdout.write(`[blocked] ${condition.id} ${manifest.failures.at(-1).error}\n`)
+          break
+        }
         const score = lib.scoreTrajectory(record, result.events)
         score.tools = toolSummary(result.events)
         score.cache = cacheSummary(score.usage)

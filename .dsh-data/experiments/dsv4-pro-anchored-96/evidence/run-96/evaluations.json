@@ -1,0 +1,43 @@
+[
+  {
+    "id": "pro-anchored-96",
+    "evaluatorExitCode": 1,
+    "benchmark": "project2-v4.1b",
+    "ability": 96,
+    "ship": 96,
+    "releaseClass": "B+",
+    "blockers": [
+      "M-fidelity",
+      "E-contract"
+    ],
+    "behaviorBlockers": [
+      "M-fidelity",
+      "E-contract"
+    ],
+    "family": {
+      "F1": 8,
+      "F2": 12,
+      "F3": 16,
+      "F4": 4,
+      "F5": 12,
+      "F6": 8,
+      "F7": 8,
+      "F8": 7,
+      "F9": 6,
+      "F10": 8,
+      "F11": 4,
+      "F12": 3
+    },
+    "dimensions": {
+      "final_code": 10,
+      "security": 9.72,
+      "migration": 8,
+      "esp_deploy": 9.29,
+      "process_truth": 10,
+      "efficiency": null
+    },
+    "durationSec": 302,
+    "censored": false,
+    "resultDir": "conditions/pro-anchored-96/official"
+  }
+]

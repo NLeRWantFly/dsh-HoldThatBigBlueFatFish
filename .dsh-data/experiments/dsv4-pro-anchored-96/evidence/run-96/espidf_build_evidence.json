@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "return_code": 0,
+  "project": "C:\\Users\\顶真\\Documents\\ChatGPT\\deepseek-harness\\.project2-handoffs\\router-compare\\run-win-2026-08-16_04-05-25-418\\pro-anchored-96\\workspace\\project2_task",
+  "log": "C:\\Users\\顶真\\Documents\\ChatGPT\\deepseek-harness\\.project2-handoffs\\router-compare\\run-win-2026-08-16_04-05-25-418\\modeltest-control\\evaluator\\results\\20260816_124728\\espidf_build.log",
+  "artifacts": [
+    {
+      "name": "stdpro.bin",
+      "source": "C:\\Users\\顶真\\Documents\\ChatGPT\\deepseek-harness\\.espidf-build-96-20260816\\project2_task\\esp32\\testpro4\\build\\stdpro.bin",
+      "archived": "C:\\Users\\顶真\\Documents\\ChatGPT\\deepseek-harness\\.project2-handoffs\\router-compare\\run-win-2026-08-16_04-05-25-418\\modeltest-control\\evaluator\\results\\20260816_124728\\espidf_build_artifacts\\stdpro.bin",
+      "bytes": 985520,
+      "sha256": "a88bc503ac85286515a2b2644cc8ec8436faa60589de910c494f4aa97cb8097c",
+      "mtime_utc": "2026-08-16T04:52:29.411178+00:00"
+    }
+  ],
+  "evidence_complete": true
+}

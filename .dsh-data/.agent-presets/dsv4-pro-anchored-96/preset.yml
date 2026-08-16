@@ -1,0 +1,3 @@
+name: DeepSeek V4 Pro Anchored v0.2
+description: V4 Pro-specific Minimal anchor; native shell/read on request one and full Standard tools after the first persisted tool call.
+order: 4
