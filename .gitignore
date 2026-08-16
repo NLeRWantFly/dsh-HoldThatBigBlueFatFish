@@ -8,6 +8,8 @@
 !.dsh-data/.agent-presets/dsv4-progressive-guarded/**
 !.dsh-data/.agent-presets/dsv4-pro-anchored-96/
 !.dsh-data/.agent-presets/dsv4-pro-anchored-96/**
+!.dsh-data/.agent-presets/dsv4-pro-contract-anchor/
+!.dsh-data/.agent-presets/dsv4-pro-contract-anchor/**
 
 # The older first-action fixture contains copied workspaces and is not part of this release.
 .dsh-data/experiments/dsv4-first-action/

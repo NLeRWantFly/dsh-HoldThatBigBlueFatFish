@@ -1,10 +1,10 @@
 {
   "name": "dsv4-progressive-guarded",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Stable V4 Pro context, portable bash facade, bounded vertical slices, and convergence control for DeepSeek Harness.",
+  "description": "Minimal-first V4 Pro contract anchor plus the defensive progressive preset for DeepSeek Harness.",
   "scripts": {
-    "test": "node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/model-policy.tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/portable-bash.tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/verify.mjs",
+    "test": "node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/model-policy.tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/portable-bash.tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/tests.mjs && node .dsh-data/experiments/dsv4-anchored-v2-efficient/production/verify.mjs && node .dsh-data/experiments/dsv4-pro-contract-anchor/tests.mjs",
     "aggregate": "node .dsh-data/experiments/dsv4-anchored-v2-efficient/aggregate-results.mjs"
   },
   "keywords": [
