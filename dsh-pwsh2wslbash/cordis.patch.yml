@@ -16,7 +16,15 @@
 - id: permission
   disabled: true
 
+- id: fs-sandbox
+  disabled: true
+
 - insert:
+    - id: wsl-fs-path
+      name: 'dsh-pwsh2wslbash/fs-path-bridge'
+      config:
+        cwd: !!js process.cwd()
+
     - id: wsl-bash
       name: 'dsh-pwsh2wslbash'
       config:

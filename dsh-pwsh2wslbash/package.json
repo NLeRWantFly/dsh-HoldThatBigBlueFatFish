@@ -1,17 +1,19 @@
 {
   "name": "dsh-pwsh2wslbash",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "WSL-backed Bash executor and profile bundle for DeepSeek Harness on Windows",
   "type": "module",
   "main": "index.js",
   "exports": {
     ".": "./index.js",
+    "./fs-path-bridge": "./fs-path-bridge.js",
     "./wsl-argv": "./lib/wsl-argv.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "files": [
     "index.js",
+    "fs-path-bridge.js",
     "lib",
     "cordis.patch.yml",
     "README.md",
@@ -29,6 +31,7 @@
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-bash-local": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-fs-sandbox": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-shell": "^0.1.0-rc.6"
   },
   "dependencies": {
