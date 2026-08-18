@@ -1,5 +1,44 @@
 # dsh-HoldThatBigBlueFatFish
 
+## v4preview 推荐组合：V4 Preview + J-Space
+
+`v4preview` 分支已经把 `dsh-multimodel` 内置进 Pro preset，并保留极简首轮：普通
+首轮只显示原生 shell 与 `read`；有图片时仅额外显示 `perceive_media`；首次持久化
+工具调用后恢复 Standard 工具，并开放桥接自带的 `read_image`。因此推荐把
+[J-Space Cognition Suite V3.6](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6)
+作为按需 Skill 组合使用，而不是把整套 J-Space 文本拼进 system prompt。
+
+推荐组合：
+
+```text
+DeepSeek V4 Preview preset
+  + 内置 dsh-multimodel（按需视觉、纯文本 provider 净化）
+  + J-Space（按需加载的长任务认知控制）
+  + dsh-pwsh2wslbash（Windows 上可选）
+```
+
+PowerShell 安装：
+
+```powershell
+git clone --branch v4preview https://github.com/NLeRWantFly/dsh-HoldThatBigBlueFatFish.git
+git clone https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6.git
+git -C '.\J-Space-Cognition-Suite-V3.6' checkout 885dc513702cc884f0b4fa07d24a27b2df5a1daf
+
+if (-not $env:DSH_HOME) { throw '请先设置 DSH_HOME' }
+$preset = Join-Path $env:DSH_HOME '.agent-presets\dsv4-pro-contract-anchor'
+if (Test-Path -LiteralPath $preset) { throw "目标已存在，请先备份或改名：$preset" }
+Copy-Item -Recurse -LiteralPath '.\dsh-HoldThatBigBlueFatFish\.dsh-data\.agent-presets\dsv4-pro-contract-anchor' -Destination $preset
+New-Item -ItemType Directory -Force -Path (Join-Path $preset 'skills') | Out-Null
+Copy-Item -Recurse -LiteralPath '.\J-Space-Cognition-Suite-V3.6\j-space' -Destination (Join-Path $preset 'skills\j-space')
+```
+
+完整重启 DSH，新建 session，选择 `DeepSeek V4 Preview Multimodal
+v0.4.0-preview.1`。上述 J-Space 提交是本分支验证过的组合点。任务较长、约束较多
+或需要持续自检时调用 `j-space`；不要把
+J-Space 的九个模块一次性全部注入。Windows 需要 WSL Bash 时，再按
+[`dsh-pwsh2wslbash`](dsh-pwsh2wslbash/) 的 profile 安装说明组合。preview 已内置
+多模态插件，不要再次把顶层 `dsh-multimodel` 复制进同一个 preset。
+
 ## v0.3：Project2 从 92.5 提升到 99 分
 
 正式版 `v0.3.0` 使用 OpenCode Go 套餐的 `deepseek-v4-pro`、`reasoningEffort: max`，在冻结的 Modeltest Project2 v4.1b 上得到 **Ability 99、Ship 99、Release A**，无 blocker，并完成真实 ESP-IDF 构建。评测使用的 RC5 与正式版 `contract-anchor.mjs` 逐字节一致，因此按原样晋升，不通过评测后改 prompt 来“补分”。
