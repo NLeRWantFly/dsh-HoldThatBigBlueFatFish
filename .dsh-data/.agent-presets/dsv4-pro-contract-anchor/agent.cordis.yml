@@ -45,11 +45,24 @@
 # DeepSeek V4 Pro two-phase contract anchor. Request one exposes only the
 # native shell and read. The next request restores Standard tools and adds one
 # stable, short engineering contract for every remaining request in the turn.
-- id: dsv4-pro-contract-anchor-tools
-  name: './contract-anchor.mjs'
+- id: dsh-multimodel
+  name: './plugins/dsh-multimodel/src/multimodal-bridge.mjs'
   config:
+    visionEnabled: true
+    backend: codex
+    readImageBridge: true
+    holdThatBootstrap: true
     shellTools: [bash, pwsh]
     commonTools: [read]
+    minimalSystem: You are a helpful software engineer assistant.
+    contractSystem: Security, migration, API/protocol, and release constraints are invariants. Use verified slices. Preserve legacy rows; backfill replacement fields before indexing. Never rename/remove existing identifiers, even static/private; if logic moves, leave exact-name wrappers. Keep protocol strings and dependency/API names literal. Use clean build roots; never replace integrations for toolchain failures. Complete requested reports before docs; skip optional docs. Stop after required checks pass.
+    maxRounds: 6
+    maxImages: 8
+    timeoutMs: 600000
+    codex:
+      configOverrides: []
+    claude:
+      maxTurns: 8
 
 - id: tool-bash
   name: '@deepseek-ai/dsh-tool-bash'
@@ -65,6 +78,10 @@
 # they need no realm. The `fs` service and its policy stay in the host.
 - id: tool-fs
   name: '@deepseek-ai/dsh-tool-fs'
+  config:
+    # v4preview's bridge owns read_image so text-only providers never receive
+    # the native tool-fs ImageBlock directly.
+    readImage: false
 
 - id: tool-fs-search
   name: '@deepseek-ai/dsh-tool-fs-search'
@@ -92,6 +109,10 @@
 # carries whatever the deployment registered globally (repository plugins).
 - id: skill-filesystem
   name: '@deepseek-ai/dsh-skill-filesystem'
+  config:
+    # Recommended J-Space installs live under this preset-local directory.
+    customSkillDirs:
+      - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('skills/', baseUrl))"
 
 - id: tool-skill
   name: '@deepseek-ai/dsh-tool-skill'

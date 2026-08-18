@@ -1,3 +1,3 @@
-name: DeepSeek V4 Pro Contract Anchor v0.3.0
-description: Minimal request-one anchor; full Standard tools plus a stable invariant/checklist contract after the first persisted tool call.
+name: DeepSeek V4 Preview Multimodal v0.4.0-preview.1
+description: Minimal first request, on-demand vision, bridge-owned read_image, and preset-local J-Space composition.
 order: 5
